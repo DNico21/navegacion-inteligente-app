@@ -109,7 +109,11 @@ export default function LoginScreen() {
             </View>
 
             {/* Submit */}
-            <TouchableOpacity style={styles.submitButton} activeOpacity={0.88}>
+            <TouchableOpacity
+              style={styles.submitButton}
+              activeOpacity={0.88}
+              onPress={() => router.replace('/')}
+            >
               <Text style={styles.submitText}>Iniciar Sesión</Text>
               <MaterialIcons name="login" size={20} color="#fff" />
             </TouchableOpacity>
@@ -137,7 +141,9 @@ export default function LoginScreen() {
           {/* Sign up footer */}
           <Text style={styles.footerText}>
             ¿No tienes una cuenta?{' '}
-            <Text style={styles.signupLink}>Regístrate gratis</Text>
+            <Text style={styles.signupLink} onPress={() => router.push('/register')}>
+              Regístrate gratis
+            </Text>
           </Text>
         </ScrollView>
       </KeyboardAvoidingView>
