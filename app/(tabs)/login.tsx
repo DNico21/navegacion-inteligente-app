@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useContext, useState } from 'react';
 import {
   View,
   Text,
@@ -8,16 +8,21 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons, AntDesign, Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { AuthContext } from '@/context/AuthContext/AuthContext';
 
 export default function LoginScreen() {
+  const { signIn } = useContext(AuthContext);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
@@ -112,10 +117,30 @@ export default function LoginScreen() {
             <TouchableOpacity
               style={styles.submitButton}
               activeOpacity={0.88}
-              onPress={() => router.replace('/')}
+              disabled={loading}
+              onPress={async () => {
+                if (!email || !password) {
+                  Alert.alert('Error', 'Ingresa tu correo y contraseña');
+                  return;
+                }
+                setLoading(true);
+                const ok = await signIn(email, password);
+                setLoading(false);
+                if (ok) {
+                  router.replace('/');
+                } else {
+                  Alert.alert('Error', 'Correo o contraseña incorrectos');
+                }
+              }}
             >
-              <Text style={styles.submitText}>Iniciar Sesión</Text>
-              <MaterialIcons name="login" size={20} color="#fff" />
+              {loading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <>
+                  <Text style={styles.submitText}>Iniciar Sesión</Text>
+                  <MaterialIcons name="login" size={20} color="#fff" />
+                </>
+              )}
             </TouchableOpacity>
 
             {/* Divider */}

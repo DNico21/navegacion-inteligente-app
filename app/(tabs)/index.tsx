@@ -1,77 +1,23 @@
+import { useContext, useEffect } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   StyleSheet,
   ScrollView,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import MapView, { Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
+import { RouteContext } from '@/context/RouteContext/RouteContext';
+import { SABANA_REGION } from '@/constants/locations';
 
-// ─── Placeholder data (replace with real API data) ───────────────────────────
-const SUGGESTION = {
-  text: 'Sale a las 6:32 am para ahorrar 18 minutos y evitar el congestionamiento en el peaje.',
-};
+const DEFAULT_SUGGESTION = 'Calculando el mejor horario de salida para tu ruta...';
 
 type ReliabilityLevel = 'low' | 'moderate' | 'high';
-
-interface Route {
-  id: number;
-  badge: string;
-  reliability: string;
-  reliabilityLevel: ReliabilityLevel;
-  name: string;
-  trafficDots: string[];
-  trafficLabel: string;
-  time: string;
-  uncertainty: string;
-  distance: string;
-  footer: string;
-}
-
-const ROUTES: Route[] = [
-  {
-    id: 1,
-    badge: 'Recomendada',
-    reliability: 'PREDECIBLE',
-    reliabilityLevel: 'low',
-    name: 'Vía Cajicá — Autopista Norte',
-    trafficDots: ['#2D751A', '#c4c6d0', '#c4c6d0'],
-    trafficLabel: 'Bajo tráfico',
-    time: '58 min',
-    uncertainty: '± 6 min',
-    distance: '31 km',
-    footer: 'Histórico: 52–64 min',
-  },
-  {
-    id: 2,
-    badge: 'Alternativa 1',
-    reliability: 'VARIABLE',
-    reliabilityLevel: 'moderate',
-    name: 'Por Chía centro — Calle 19',
-    trafficDots: ['#2D751A', '#8F5A12', '#c4c6d0'],
-    trafficLabel: 'Tráfico moderado',
-    time: '51 min',
-    uncertainty: '± 18 min',
-    distance: '24 km',
-    footer: 'Histórico: 42–72 min',
-  },
-  {
-    id: 3,
-    badge: 'Alternativa 2',
-    reliability: 'IMPREDECIBLE',
-    reliabilityLevel: 'high',
-    name: 'Desvío Tabio — 25N',
-    trafficDots: ['#2D751A', '#8F5A12', '#B03A39'],
-    trafficLabel: 'Alta volatilidad',
-    time: '44 min',
-    uncertainty: '± 31 min',
-    distance: '38 km',
-    footer: 'Incidente reportado: Peaje',
-  },
-];
 
 const RELIABILITY_THEME: Record<
   ReliabilityLevel,
@@ -89,7 +35,29 @@ const NAV_TABS = [
   { icon: 'account-circle', label: 'Perfil', active: false, route: '/profile' },
 ];
 
+function formatMinutes(seconds: number): string {
+  const m = Math.round(seconds / 60);
+  return m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${m} min`;
+}
+
+function getReliabilityLevel(durationSecs: number, baseSecs: number): ReliabilityLevel {
+  const ratio = durationSecs / baseSecs;
+  if (ratio < 1.15) return 'low';
+  if (ratio < 1.4) return 'moderate';
+  return 'high';
+}
+
 export default function TodayRoutesScreen() {
+  const { state, fetchRoutes, selectRoute } = useContext(RouteContext);
+  const { routes, loading, error, suggestion, origin, destination } = state;
+
+  useEffect(() => {
+    fetchRoutes();
+  }, []);
+
+  const now = new Date();
+  const timeLabel = `${origin.label.split(' ')[0]} → ${destination.label.split(' ')[0]} · ${now.toLocaleDateString('es-CO', { weekday: 'short' })} ${now.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}`;
+
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <StatusBar style="light" />
@@ -119,16 +87,13 @@ export default function TodayRoutesScreen() {
         <View style={styles.sectionHeader}>
           <View style={styles.sectionHeaderRow}>
             <Text style={styles.pageTitle}>Rutas de hoy</Text>
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>Hora pico</Text>
-            </View>
+            {loading && <ActivityIndicator size="small" color="#185FA5" />}
           </View>
-          <Text style={styles.pageSubtitle}>Chía → La Sabana · Mar 7:30 am</Text>
+          <Text style={styles.pageSubtitle}>{timeLabel}</Text>
         </View>
 
         {/* Suggestion card */}
         <View style={styles.suggestionCard}>
-          {/* Background icon decoration */}
           <View style={styles.suggestionBgIcon} pointerEvents="none">
             <MaterialIcons name="schedule" size={120} color="#fff" style={{ opacity: 0.1 }} />
           </View>
@@ -136,65 +101,60 @@ export default function TodayRoutesScreen() {
             <MaterialIcons name="lightbulb" size={22} color="#fff" style={{ marginTop: 2 }} />
             <View style={styles.suggestionText}>
               <Text style={styles.suggestionTitle}>Optimización sugerida</Text>
-              <Text style={styles.suggestionBody}>{SUGGESTION.text}</Text>
+              <Text style={styles.suggestionBody}>
+                {suggestion ?? DEFAULT_SUGGESTION}
+              </Text>
             </View>
           </View>
         </View>
 
+        {/* Error */}
+        {error && (
+          <View style={styles.errorCard}>
+            <MaterialIcons name="error-outline" size={18} color="#B03A39" />
+            <Text style={styles.errorText}>
+              No se pudo conectar a Google Maps. Verifica tu API key.
+            </Text>
+          </View>
+        )}
+
         {/* Divider */}
         <View style={styles.divider}>
-          <Text style={styles.dividerLabel}>ORDENADO POR CONFIABILIDAD</Text>
+          <Text style={styles.dividerLabel}>ORDENADO POR TIEMPO</Text>
           <View style={styles.dividerLine} />
         </View>
 
-        {/* Route cards */}
-        {ROUTES.map(route => {
-          const theme = RELIABILITY_THEME[route.reliabilityLevel];
+        {/* Route cards — reales si hay datos, hardcoded de fallback si no */}
+        {(routes.length > 0 ? routes : []).map((route, i) => {
+          const level = getReliabilityLevel(route.durationInTrafficSeconds, route.durationSeconds);
+          const theme = RELIABILITY_THEME[level];
+          const labels = ['Recomendada', 'Alternativa 1', 'Alternativa 2'];
+          const reliabilityLabels: Record<ReliabilityLevel, string> = {
+            low: 'PREDECIBLE', moderate: 'VARIABLE', high: 'IMPREDECIBLE',
+          };
+          const extra = Math.round((route.durationInTrafficSeconds - route.durationSeconds) / 60);
           return (
             <TouchableOpacity
-              key={route.id}
+              key={route.index}
               style={[styles.routeCard, { borderColor: theme.border }]}
               activeOpacity={0.88}
-              onPress={() => router.push('/route-detail')}
+              onPress={() => { selectRoute(i); router.push('/route-detail'); }}
             >
-              {/* Card header stripe */}
               <View style={[styles.routeCardHeader, { backgroundColor: theme.bg }]}>
-                <Text style={[styles.routeBadge, { color: theme.color }]}>
-                  {route.badge}
-                </Text>
-                <Text style={[styles.routeReliability, { color: theme.color }]}>
-                  {route.reliability}
-                </Text>
+                <Text style={[styles.routeBadge, { color: theme.color }]}>{labels[i] ?? `Alternativa ${i}`}</Text>
+                <Text style={[styles.routeReliability, { color: theme.color }]}>{reliabilityLabels[level]}</Text>
               </View>
-
-              {/* Card body */}
               <View style={styles.routeCardBody}>
-                {/* Left: name + traffic */}
                 <View style={styles.routeLeft}>
-                  <Text style={styles.routeName}>{route.name}</Text>
-                  <View style={styles.trafficRow}>
-                    <View style={styles.trafficDots}>
-                      {route.trafficDots.map((color, i) => (
-                        <View key={i} style={[styles.trafficDot, { backgroundColor: color }]} />
-                      ))}
-                    </View>
-                    <Text style={styles.trafficLabel}>{route.trafficLabel}</Text>
-                  </View>
+                  <Text style={styles.routeName}>{route.summary}</Text>
+                  <Text style={styles.trafficLabel}>
+                    {extra > 0 ? `+${extra} min por tráfico` : 'Sin retrasos por tráfico'}
+                  </Text>
                 </View>
-
-                {/* Right: time */}
                 <View style={styles.routeRight}>
-                  <Text style={styles.routeTime}>{route.time}</Text>
-                  <Text style={styles.routeUncertainty}>{route.uncertainty}</Text>
+                  <Text style={styles.routeTime}>{formatMinutes(route.durationInTrafficSeconds)}</Text>
+                  <Text style={styles.routeUncertainty}>{route.distanceText}</Text>
                 </View>
-              </View>
-
-              {/* Card footer */}
-              <View style={styles.routeCardFooter}>
-                <Text style={styles.routeFooterText}>
-                  {'•  '}{route.distance}
-                </Text>
-                <Text style={styles.routeFooterText}>{route.footer}</Text>
               </View>
             </TouchableOpacity>
           );
@@ -216,13 +176,29 @@ export default function TodayRoutesScreen() {
           <MaterialIcons name="chevron-right" size={22} color="#185FA5" />
         </TouchableOpacity>
 
-        {/* Map mini-view */}
+        {/* Mapa miniatura */}
         <View style={styles.mapPlaceholder}>
-          <MaterialIcons name="map" size={40} color="#B0B8C4" />
-          <Text style={styles.mapPlaceholderText}>Mapa de rutas</Text>
-          {/* Gradient overlay simulation */}
+          <MapView
+            style={StyleSheet.absoluteFillObject}
+            provider={PROVIDER_GOOGLE}
+            initialRegion={SABANA_REGION}
+            scrollEnabled={false}
+            zoomEnabled={false}
+            rotateEnabled={false}
+          >
+            {routes[0]?.polylineCoords && routes[0].polylineCoords.length > 0 && (
+              <Polyline
+                coordinates={routes[0].polylineCoords}
+                strokeColor="#185FA5"
+                strokeWidth={3}
+              />
+            )}
+          </MapView>
           <View style={styles.mapOverlay} />
-          <TouchableOpacity style={styles.mapButton}>
+          <TouchableOpacity
+            style={styles.mapButton}
+            onPress={() => { selectRoute(0); router.push('/route-detail'); }}
+          >
             <MaterialIcons name="map" size={18} color="#fff" />
             <Text style={styles.mapButtonText}>Ver Mapa Completo</Text>
           </TouchableOpacity>
@@ -619,5 +595,22 @@ const styles = StyleSheet.create({
   navLabelActive: {
     color: '#185FA5',
     fontWeight: '700',
+  },
+
+  errorCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: '#FCECEC',
+    borderLeftWidth: 4,
+    borderLeftColor: '#B03A39',
+    borderRadius: 8,
+    padding: 12,
+  },
+  errorText: {
+    flex: 1,
+    fontSize: 12,
+    color: '#B03A39',
+    fontWeight: '500',
   },
 });

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useContext, useState } from 'react';
 import {
   View,
   Text,
@@ -8,19 +8,24 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons, AntDesign, FontAwesome } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { AuthContext } from '@/context/AuthContext/AuthContext';
 
 export default function RegisterScreen() {
+  const { signUp } = useContext(AuthContext);
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
@@ -164,11 +169,60 @@ export default function RegisterScreen() {
             <TouchableOpacity
               style={styles.submitButton}
               activeOpacity={0.88}
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              onPress={() => router.push('/register-success' as any)}
+              disabled={loading}
+              onPress={async () => {
+                if (!fullName || !email || !password || !confirmPassword) {
+                  Alert.alert('Error', 'Completa todos los campos');
+                  return;
+                }
+                if (fullName.trim().length < 3) {
+                  Alert.alert('Error', 'Ingresa tu nombre completo');
+                  return;
+                }
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                if (!emailRegex.test(email)) {
+                  Alert.alert('Error', 'Ingresa un correo electrónico válido');
+                  return;
+                }
+                if (password.length < 8) {
+                  Alert.alert('Error', 'La contraseña debe tener al menos 8 caracteres');
+                  return;
+                }
+                if (!/[A-Z]/.test(password)) {
+                  Alert.alert('Error', 'La contraseña debe tener al menos una letra mayúscula');
+                  return;
+                }
+                if (!/[0-9]/.test(password)) {
+                  Alert.alert('Error', 'La contraseña debe tener al menos un número');
+                  return;
+                }
+                if (password !== confirmPassword) {
+                  Alert.alert('Error', 'Las contraseñas no coinciden');
+                  return;
+                }
+                if (!acceptedTerms) {
+                  Alert.alert('Error', 'Debes aceptar los términos y condiciones');
+                  return;
+                }
+                setLoading(true);
+                const ok = await signUp(email, password, fullName);
+                setLoading(false);
+                if (ok) {
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  router.push('/register-success' as any);
+                } else {
+                  Alert.alert('Error', 'No se pudo crear la cuenta. El correo puede estar en uso.');
+                }
+              }}
             >
-              <Text style={styles.submitText}>Registrarse</Text>
-              <MaterialIcons name="arrow-forward" size={20} color="#fff" />
+              {loading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <>
+                  <Text style={styles.submitText}>Registrarse</Text>
+                  <MaterialIcons name="arrow-forward" size={20} color="#fff" />
+                </>
+              )}
             </TouchableOpacity>
           </View>
 
