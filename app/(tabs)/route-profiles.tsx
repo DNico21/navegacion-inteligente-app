@@ -10,6 +10,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import BottomNavBar from '@/components/BottomNavBar';
 
 // ─── Placeholder data ──────────────────────────────────────────────────────────
 type ProfileKey = 'casa' | 'trabajo' | 'universidad';
@@ -42,13 +43,6 @@ const SETTINGS_CONFIG: SettingItem[] = [
   { icon: 'toll', label: 'Evitar peajes', subtitle: null, key: 'avoidTolls' },
   { icon: 'eco', label: 'Ruta más ecológica', subtitle: '-15% emisiones', key: 'ecoRoute' },
   { icon: 'notifications-active', label: 'Alertas predictivas', subtitle: null, key: 'predictiveAlerts' },
-];
-
-const NAV_TABS = [
-  { icon: 'dashboard', label: 'Dashboard', active: false },
-  { icon: 'directions-car', label: 'Routes', active: false },
-  { icon: 'star', label: 'Favorites', active: false },
-  { icon: 'settings', label: 'Settings', active: true },
 ];
 
 export default function RouteProfilesScreen() {
@@ -227,24 +221,7 @@ export default function RouteProfilesScreen() {
         </View>
       </ScrollView>
 
-      {/* ── Bottom Navigation ── */}
-      <View style={styles.bottomNav}>
-        {NAV_TABS.map(tab => (
-          <TouchableOpacity
-            key={tab.label}
-            style={[styles.navTab, tab.active && styles.navTabActive]}
-          >
-            <MaterialIcons
-              name={tab.icon as any}
-              size={24}
-              color={tab.active ? '#185FA5' : '#64748b'}
-            />
-            <Text style={[styles.navLabel, tab.active && styles.navLabelActive]}>
-              {tab.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
+      <BottomNavBar active="home" />
     </SafeAreaView>
   );
 }
@@ -609,36 +586,4 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-end',
   },
 
-  // Bottom nav
-  bottomNav: {
-    flexDirection: 'row',
-    height: 64,
-    backgroundColor: '#fff',
-    borderTopWidth: 1,
-    borderTopColor: '#C5CDD8',
-    paddingHorizontal: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    elevation: 8,
-  },
-  navTab: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 2,
-  },
-  navTabActive: {
-    borderRadius: 10,
-  },
-  navLabel: {
-    fontWeight: '500',
-    fontSize: 11,
-    color: '#64748b',
-  },
-  navLabelActive: {
-    color: '#185FA5',
-    fontWeight: '700',
-  },
 });

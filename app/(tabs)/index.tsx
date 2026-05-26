@@ -15,6 +15,7 @@ import MapView, { Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import { RouteContext } from '@/context/RouteContext/RouteContext';
 import { PlanningContext } from '@/context/PlanningContext/PlanningContext';
 import { SABANA_REGION } from '@/constants/locations';
+import BottomNavBar from '@/components/BottomNavBar';
 
 const DEFAULT_SUGGESTION = 'Calculando el mejor horario de salida para tu ruta...';
 
@@ -28,13 +29,6 @@ const RELIABILITY_THEME: Record<
   moderate: { bg: '#F8F1E8', color: '#8F5A12', border: '#c4c6d0' },
   high: { bg: '#FCECEC', color: '#B03A39', border: '#c4c6d0' },
 };
-
-const NAV_TABS = [
-  { icon: 'home', label: 'Inicio', active: true, route: null },
-  { icon: 'notifications', label: 'Alertas', active: false, route: '/alerts' },
-  { icon: 'event', label: 'Mi Día', active: false, route: '/plan-day' },
-  { icon: 'account-circle', label: 'Perfil', active: false, route: '/profile' },
-];
 
 function formatMinutes(seconds: number): string {
   const m = Math.round(seconds / 60);
@@ -287,25 +281,7 @@ export default function TodayRoutesScreen() {
         <MaterialIcons name="directions" size={28} color="#fff" />
       </TouchableOpacity>
 
-      {/* ── Bottom Navigation Bar ── */}
-      <View style={styles.bottomNav}>
-        {NAV_TABS.map(tab => (
-          <TouchableOpacity
-            key={tab.label}
-            style={[styles.navTab, tab.active && styles.navTabActive]}
-            onPress={() => tab.route && router.push(tab.route as any)}
-          >
-            <MaterialIcons
-              name={tab.icon as any}
-              size={24}
-              color={tab.active ? '#185FA5' : '#64748b'}
-            />
-            <Text style={[styles.navLabel, tab.active && styles.navLabelActive]}>
-              {tab.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
+      <BottomNavBar active="home" />
     </SafeAreaView>
   );
 }
@@ -671,38 +647,6 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 6,
     zIndex: 40,
-  },
-
-  // Bottom nav
-  bottomNav: {
-    flexDirection: 'row',
-    height: 64,
-    backgroundColor: '#fff',
-    borderTopWidth: 1,
-    borderTopColor: '#C5CDD8',
-    paddingHorizontal: 8,
-  },
-  navTab: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 2,
-    paddingVertical: 8,
-  },
-  navTabActive: {
-    backgroundColor: 'rgba(235,245,249,0.5)',
-    borderRadius: 12,
-  },
-  navLabel: {
-    fontWeight: '500',
-    fontSize: 10,
-    letterSpacing: 0.8,
-    textTransform: 'uppercase',
-    color: '#64748b',
-  },
-  navLabelActive: {
-    color: '#185FA5',
-    fontWeight: '700',
   },
 
   errorCard: {

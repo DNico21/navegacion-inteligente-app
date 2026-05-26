@@ -9,6 +9,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import BottomNavBar from "@/components/BottomNavBar";
 
 const WEEKLY_BARS = [
   { day: "L", height: 48, color: "#EBF5E9" },
@@ -47,12 +48,6 @@ const ACHIEVEMENTS = [
   },
 ];
 
-const NAV_TABS = [
-  { icon: "home", label: "Inicio", active: false, route: "/" },
-  { icon: "traffic", label: "Tráfico", active: false, route: "/alerts" },
-  { icon: "spa", label: "Bienestar", active: true, route: null },
-  { icon: "settings", label: "Ajustes", active: false, route: "/profile" },
-];
 
 export default function WellnessHistoryScreen() {
   return (
@@ -248,26 +243,7 @@ export default function WellnessHistoryScreen() {
         </View>
       </ScrollView>
 
-      <View style={styles.bottomNav}>
-        {NAV_TABS.map((tab) => (
-          <TouchableOpacity
-            key={tab.label}
-            style={[styles.navTab, tab.active && styles.navTabActive]}
-            onPress={() => tab.route && router.push(tab.route as any)}
-          >
-            <MaterialIcons
-              name={tab.icon as any}
-              size={24}
-              color={tab.active ? "#185FA5" : "#94a3b8"}
-            />
-            <Text
-              style={[styles.navLabel, tab.active && styles.navLabelActive]}
-            >
-              {tab.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
+      <BottomNavBar active="wellness" />
     </SafeAreaView>
   );
 }
@@ -526,34 +502,4 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
 
-  // Bottom nav
-  bottomNav: {
-    flexDirection: "row",
-    height: 64,
-    backgroundColor: "#fff",
-    borderTopWidth: 1,
-    borderTopColor: "#C5CDD8",
-    paddingHorizontal: 8,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    elevation: 8,
-  },
-  navTab: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 2,
-    paddingVertical: 8,
-  },
-  navTabActive: { backgroundColor: "#F0F7FF", borderRadius: 12 },
-  navLabel: {
-    fontWeight: "500",
-    fontSize: 10,
-    letterSpacing: 0.8,
-    textTransform: "uppercase",
-    color: "#94a3b8",
-  },
-  navLabelActive: { color: "#185FA5", fontWeight: "700" },
 });

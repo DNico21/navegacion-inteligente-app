@@ -15,18 +15,12 @@ import MapView, { Polyline, Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import { RouteContext } from '@/context/RouteContext/RouteContext';
 import { SABANA_REGION } from '@/constants/locations';
 import { openNavigation } from '@/utils/openNavigation';
+import BottomNavBar from '@/components/BottomNavBar';
 
 const WELLBEING = [
   { icon: 'headset', title: 'Escuchar Lo-Fi Relax', subtitle: 'Música binaural para concentración' },
   { icon: 'air', title: 'Respiración rápida', subtitle: 'Técnica 4-7-8 para calmar nervios' },
   { icon: 'auto-awesome', title: 'Afirmación de calma', subtitle: 'Enfoque mental positivo hoy' },
-];
-
-const NAV_TABS = [
-  { icon: 'explore', label: 'Explorar', active: false },
-  { icon: 'directions-car', label: 'Mis Rutas', active: true },
-  { icon: 'notifications', label: 'Alertas', active: false },
-  { icon: 'account-circle', label: 'Perfil', active: false },
 ];
 
 function formatMinutes(seconds: number): string {
@@ -205,23 +199,7 @@ export default function RouteDetailScreen() {
         </TouchableOpacity>
       </ScrollView>
 
-      <View style={styles.bottomNav}>
-        {NAV_TABS.map(tab => (
-          <TouchableOpacity
-            key={tab.label}
-            style={[styles.navTab, tab.active && styles.navTabActive]}
-          >
-            <MaterialIcons
-              name={tab.icon as any}
-              size={24}
-              color={tab.active ? '#185FA5' : '#94a3b8'}
-            />
-            <Text style={[styles.navLabel, tab.active && styles.navLabelActive]}>
-              {tab.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
+      <BottomNavBar active="home" />
     </SafeAreaView>
   );
 }
@@ -298,12 +276,4 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2, shadowRadius: 12, elevation: 4,
   },
   ctaText: { fontWeight: '600', fontSize: 16, color: '#fff' },
-  bottomNav: {
-    flexDirection: 'row', height: 64, backgroundColor: '#fff',
-    borderTopWidth: 1, borderTopColor: '#C5CDD8', paddingHorizontal: 8,
-  },
-  navTab: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 2, paddingVertical: 8 },
-  navTabActive: { borderRadius: 10 },
-  navLabel: { fontWeight: '500', fontSize: 10, letterSpacing: 0.8, textTransform: 'uppercase', color: '#94a3b8' },
-  navLabelActive: { color: '#185FA5', fontWeight: '700' },
 });

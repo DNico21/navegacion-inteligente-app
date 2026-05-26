@@ -11,8 +11,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
-import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import BottomNavBar from '@/components/BottomNavBar';
 
 // ─── Types & data ─────────────────────────────────────────────────────────────
 
@@ -54,13 +54,6 @@ const INITIAL_MESSAGES: ChatMessage[] = [
     text: 'Es comprensible, pero recuerda que ya configuraste tu ruta óptima. Tienes el control. ¿Quieres que hagamos una breve afirmación positiva o prefieres escuchar algo de música relajante?',
     time: '10:03 AM',
   },
-];
-
-const NAV_TABS = [
-  { icon: 'chat', label: 'Chat', active: true, route: null },
-  { icon: 'show-chart', label: 'Progreso', active: false, route: '/wellness-history' },
-  { icon: 'spa', label: 'Meditar', active: false, route: '/relaxation-library' },
-  { icon: 'person', label: 'Perfil', active: false, route: '/profile' },
 ];
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -223,25 +216,7 @@ export default function SabanaZenChatScreen() {
         </View>
       </KeyboardAvoidingView>
 
-      {/* Bottom nav */}
-      <View style={styles.bottomNav}>
-        {NAV_TABS.map(tab => (
-          <TouchableOpacity
-            key={tab.label}
-            style={[styles.navTab, tab.active && styles.navTabActive]}
-            onPress={() => tab.route && router.push(tab.route as any)}
-          >
-            <MaterialIcons
-              name={tab.icon as any}
-              size={24}
-              color={tab.active ? '#185FA5' : '#94a3b8'}
-            />
-            <Text style={[styles.navLabel, tab.active && styles.navLabelActive]}>
-              {tab.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
+      <BottomNavBar active="wellness" />
     </SafeAreaView>
   );
 }
@@ -343,19 +318,4 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
 
-  // Bottom nav
-  bottomNav: {
-    flexDirection: 'row', height: 64, backgroundColor: '#fff',
-    borderTopWidth: 1, borderTopColor: '#C5CDD8', paddingHorizontal: 8,
-    shadowColor: '#000', shadowOffset: { width: 0, height: -1 },
-    shadowOpacity: 0.05, shadowRadius: 4, elevation: 8,
-  },
-  navTab: {
-    flex: 1, alignItems: 'center', justifyContent: 'center', gap: 2, paddingVertical: 8,
-  },
-  navTabActive: {},
-  navLabel: {
-    fontWeight: '500', fontSize: 11, color: '#94a3b8',
-  },
-  navLabelActive: { color: '#185FA5', fontWeight: '600' },
 });

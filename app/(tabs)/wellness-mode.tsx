@@ -9,13 +9,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-
-const NAV_TABS = [
-  { icon: 'map', label: 'Map', active: false },
-  { icon: 'directions-car', label: 'Routes', active: false },
-  { icon: 'spa', label: 'Wellness', active: true },
-  { icon: 'person', label: 'Profile', active: false },
-];
+import BottomNavBar from '@/components/BottomNavBar';
 
 export default function WellnessModeScreen() {
   return (
@@ -140,24 +134,7 @@ export default function WellnessModeScreen() {
         </View>
       </ScrollView>
 
-      {/* Bottom nav */}
-      <View style={styles.bottomNav}>
-        {NAV_TABS.map(tab => (
-          <TouchableOpacity
-            key={tab.label}
-            style={[styles.navTab, tab.active && styles.navTabActive]}
-          >
-            <MaterialIcons
-              name={tab.icon as any}
-              size={24}
-              color={tab.active ? '#1d4ed8' : '#94a3b8'}
-            />
-            <Text style={[styles.navLabel, tab.active && styles.navLabelActive]}>
-              {tab.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
+      <BottomNavBar active="wellness" />
     </SafeAreaView>
   );
 }
@@ -276,20 +253,4 @@ const styles = StyleSheet.create({
     lineHeight: 22, maxWidth: 200,
   },
 
-  // Bottom nav
-  bottomNav: {
-    flexDirection: 'row', height: 60, backgroundColor: '#fff',
-    borderTopWidth: 1, borderTopColor: '#e2e8f0', paddingHorizontal: 8,
-    shadowColor: '#000', shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.04, shadowRadius: 4, elevation: 6,
-  },
-  navTab: {
-    flex: 1, alignItems: 'center', justifyContent: 'center', gap: 2, paddingVertical: 6,
-  },
-  navTabActive: { backgroundColor: '#eff6ff', borderRadius: 12 },
-  navLabel: {
-    fontWeight: '500', fontSize: 10, letterSpacing: 0.8,
-    textTransform: 'uppercase', color: '#94a3b8',
-  },
-  navLabelActive: { color: '#1d4ed8', fontWeight: '700' },
 });

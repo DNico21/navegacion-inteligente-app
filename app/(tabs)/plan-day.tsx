@@ -16,6 +16,7 @@ import { StatusBar } from 'expo-status-bar';
 import { PlanningContext, AddTripParams } from '@/context/PlanningContext/PlanningContext';
 import { PlannedTrip } from '@/context/PlanningContext/PlanningReducer';
 import { SABANA_LOCATIONS } from '@/constants/locations';
+import BottomNavBar from '@/components/BottomNavBar';
 
 type Transport = 'car' | 'bus' | 'tm';
 
@@ -24,13 +25,6 @@ const TRANSPORT_ICONS: Record<Transport, string> = {
   bus: 'directions-bus',
   tm: 'train',
 };
-
-const NAV_TABS = [
-  { icon: 'home', label: 'Inicio', active: false, route: '/' },
-  { icon: 'notifications', label: 'Alertas', active: false, route: '/alerts' },
-  { icon: 'event', label: 'Mi Día', active: true, route: null },
-  { icon: 'account-circle', label: 'Perfil', active: false, route: '/profile' },
-];
 
 function formatTime12h(time24: string): string {
   const [h, m] = time24.split(':').map(Number);
@@ -365,25 +359,7 @@ export default function PlanDayScreen() {
         )}
       </ScrollView>
 
-      {/* Bottom nav */}
-      <View style={styles.bottomNav}>
-        {NAV_TABS.map((tab) => (
-          <TouchableOpacity
-            key={tab.label}
-            style={[styles.navTab, tab.active && styles.navTabActive]}
-            onPress={() => tab.route && router.push(tab.route as any)}
-          >
-            <MaterialIcons
-              name={tab.icon as any}
-              size={24}
-              color={tab.active ? '#185FA5' : '#94a3b8'}
-            />
-            <Text style={[styles.navLabel, tab.active && styles.navLabelActive]}>
-              {tab.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
+      <BottomNavBar active="plan-day" />
     </SafeAreaView>
   );
 }
@@ -514,13 +490,4 @@ const styles = StyleSheet.create({
   },
   emptyBtnText: { fontSize: 14, fontWeight: '700', color: '#fff' },
 
-  // ── Bottom nav ──
-  bottomNav: {
-    flexDirection: 'row', height: 64, backgroundColor: '#fff',
-    borderTopWidth: 1, borderTopColor: '#C5CDD8', paddingHorizontal: 8,
-  },
-  navTab: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 2, paddingVertical: 8 },
-  navTabActive: { backgroundColor: '#EBF3FF', borderRadius: 12 },
-  navLabel: { fontWeight: '500', fontSize: 10, letterSpacing: 0.8, textTransform: 'uppercase', color: '#94a3b8' },
-  navLabelActive: { color: '#185FA5', fontWeight: '700' },
 });
