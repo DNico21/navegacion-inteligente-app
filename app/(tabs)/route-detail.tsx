@@ -1,4 +1,4 @@
-import { useContext } from 'react';
+import { useContext, useCallback } from 'react';
 import {
   View,
   Text,
@@ -14,6 +14,7 @@ import { StatusBar } from 'expo-status-bar';
 import MapView, { Polyline, Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import { RouteContext } from '@/context/RouteContext/RouteContext';
 import { SABANA_REGION } from '@/constants/locations';
+import { openNavigation } from '@/utils/openNavigation';
 
 const WELLBEING = [
   { icon: 'headset', title: 'Escuchar Lo-Fi Relax', subtitle: 'Música binaural para concentración' },
@@ -43,6 +44,10 @@ function trafficStress(durationSecs: number, baseSecs: number): { level: string;
 export default function RouteDetailScreen() {
   const { selectedRoute, state } = useContext(RouteContext);
   const route = selectedRoute;
+
+  const handleStartNavigation = useCallback(() => {
+    openNavigation(state.destination.coordinate, state.destination.label);
+  }, [state.destination]);
   const stress = route
     ? trafficStress(route.durationInTrafficSeconds, route.durationSeconds)
     : { level: 'Medio', percent: 0.65, color: '#8F5A12' };
@@ -194,7 +199,7 @@ export default function RouteDetailScreen() {
           </View>
         </View>
 
-        <TouchableOpacity style={styles.ctaButton} activeOpacity={0.88}>
+        <TouchableOpacity style={styles.ctaButton} activeOpacity={0.88} onPress={handleStartNavigation}>
           <MaterialIcons name="navigation" size={22} color="#fff" />
           <Text style={styles.ctaText}>Iniciar Navegación</Text>
         </TouchableOpacity>

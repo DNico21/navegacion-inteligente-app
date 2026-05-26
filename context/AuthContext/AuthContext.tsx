@@ -3,6 +3,8 @@ import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   signOut as firebaseSignOut,
+  GoogleAuthProvider,
+  signInWithCredential,
 } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, db } from '@/utils/firebaseConfig';
@@ -20,6 +22,7 @@ interface AuthContextProps {
   state: AuthState;
   signIn: (email: string, password: string) => Promise<boolean>;
   signUp: (email: string, password: string, fullName: string) => Promise<boolean>;
+  signInWithGoogle: (idToken: string) => Promise<boolean>;
   signOut: () => Promise<void>;
   updateUser: (updatedUser: any) => Promise<void>;
 }
@@ -87,6 +90,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const signInWithGoogle = async (idToken: string): Promise<boolean> => {
+    try {
+      const credential = GoogleAuthProvider.credential(idToken);
+      const { user } = await signInWithCredential(auth, credential);
+      const docSnap = await getDoc(doc(db, 'Users', user.uid));
+      if (docSnap.exists()) {
+        dispatch({ type: 'login', payload: { ...user, ...docSnap.data() } });
+      } else {
+        const displayName = user.displayName ?? '';
+        const spaceIdx = displayName.indexOf(' ');
+        const firstname = spaceIdx === -1 ? displayName : displayName.slice(0, spaceIdx);
+        const lastname = spaceIdx === -1 ? '' : displayName.slice(spaceIdx + 1);
+        await setDoc(doc(db, 'Users', user.uid), {
+          firstname,
+          lastname,
+          fullName: displayName,
+          email: user.email ?? '',
+        });
+        dispatch({ type: 'login', payload: { ...user, firstname, lastname, fullName: displayName } });
+      }
+      return true;
+    } catch (error: any) {
+      console.log('signInWithGoogle error:', error.message);
+      return false;
+    }
+  };
+
   const signOut = async (): Promise<void> => {
     await firebaseSignOut(auth);
     dispatch({ type: 'logout' });
@@ -103,7 +133,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ state, signIn, signUp, signOut, updateUser }}>
+    <AuthContext.Provider value={{ state, signIn, signUp, signInWithGoogle, signOut, updateUser }}>
       {children}
     </AuthContext.Provider>
   );

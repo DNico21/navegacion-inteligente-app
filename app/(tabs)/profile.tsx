@@ -1,15 +1,17 @@
-import { useState } from 'react';
+import { useContext, useState } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   StyleSheet,
   ScrollView,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { AuthContext } from '@/context/AuthContext/AuthContext';
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
 
@@ -67,8 +69,45 @@ const NAV_TABS = [
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
+function getInitials(firstname?: string, lastname?: string): string {
+  const f = (firstname ?? '').trim()[0] ?? '';
+  const l = (lastname ?? '').trim()[0] ?? '';
+  return (f + l).toUpperCase() || '?';
+}
+
+function getMemberSince(creationTime?: string): string {
+  if (!creationTime) return 'Usuario registrado';
+  const date = new Date(creationTime);
+  return `Usuario desde ${date.toLocaleDateString('es-CO', { month: 'long', year: 'numeric' })}`;
+}
+
 export default function ProfileScreen() {
+  const { state, signOut } = useContext(AuthContext);
+  const user = state.user;
   const [notifications, setNotifications] = useState(true);
+
+  const initials = getInitials(user?.firstname, user?.lastname);
+  const fullName = user?.fullName ?? (`${user?.firstname ?? ''} ${user?.lastname ?? ''}`.trim() || 'Usuario');
+  const email = user?.email ?? '';
+  const memberSince = getMemberSince(user?.metadata?.creationTime);
+
+  async function handleSignOut() {
+    Alert.alert(
+      'Cerrar sesión',
+      '¿Estás seguro que quieres cerrar sesión?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Cerrar sesión',
+          style: 'destructive',
+          onPress: async () => {
+            await signOut();
+            router.replace('/login');
+          },
+        },
+      ]
+    );
+  }
 
   function renderRow(row: SettingRow, index: number) {
     const isFirst = index === 0;
@@ -144,14 +183,15 @@ export default function ProfileScreen() {
         <View style={styles.profileHero}>
           <View style={styles.avatarWrapper}>
             <View style={styles.profileAvatar}>
-              <Text style={styles.profileAvatarText}>AG</Text>
+              <Text style={styles.profileAvatarText}>{initials}</Text>
             </View>
             <TouchableOpacity style={styles.editBtn} activeOpacity={0.85}>
               <MaterialIcons name="edit" size={15} color="#fff" />
             </TouchableOpacity>
           </View>
-          <Text style={styles.profileName}>Andrés García</Text>
-          <Text style={styles.profileSince}>Usuario desde Octubre 2023</Text>
+          <Text style={styles.profileName}>{fullName}</Text>
+          <Text style={styles.profileEmail}>{email}</Text>
+          <Text style={styles.profileSince}>{memberSince}</Text>
         </View>
 
         {/* Stats grid */}
@@ -190,8 +230,9 @@ export default function ProfileScreen() {
           <TouchableOpacity
             style={styles.logoutBtn}
             activeOpacity={0.85}
-            onPress={() => router.replace('/login')}
+            onPress={handleSignOut}
           >
+            <MaterialIcons name="logout" size={18} color="#ba1a1a" />
             <Text style={styles.logoutText}>Cerrar Sesión</Text>
           </TouchableOpacity>
           <Text style={styles.version}>v1.4.2</Text>
@@ -261,7 +302,8 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.15, shadowRadius: 3, elevation: 2,
   },
   profileName: { fontSize: 20, fontWeight: '600', color: '#1B3A6B', letterSpacing: -0.2 },
-  profileSince: { fontSize: 14, color: '#747780', marginTop: 4 },
+  profileEmail: { fontSize: 13, color: '#185FA5', marginTop: 2 },
+  profileSince: { fontSize: 13, color: '#747780', marginTop: 2 },
 
   // Stats
   statsGrid: { flexDirection: 'row', gap: 8 },
@@ -315,7 +357,7 @@ const styles = StyleSheet.create({
     width: '100%', paddingVertical: 16,
     backgroundColor: 'rgba(186,26,26,0.05)',
     borderRadius: 12, borderWidth: 1, borderColor: 'rgba(186,26,26,0.2)',
-    alignItems: 'center',
+    alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8,
   },
   logoutText: { fontSize: 16, fontWeight: '600', color: '#ba1a1a' },
   version: { fontSize: 11, fontWeight: '500', color: '#747780', letterSpacing: 0.5 },

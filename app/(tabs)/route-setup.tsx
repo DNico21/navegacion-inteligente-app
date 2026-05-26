@@ -412,6 +412,18 @@ const styles = StyleSheet.create({
     borderTopColor: '#c4c6d0',
     paddingHorizontal: 16,
     paddingVertical: 14,
+    gap: 10,
+  },
+  profilesLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 4,
+  },
+  profilesLinkText: {
+    fontSize: 14,
+    color: '#185FA5',
+    fontWeight: '500',
   },
   ctaButton: {
     height: 56,

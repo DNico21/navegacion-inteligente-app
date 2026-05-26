@@ -1,59 +1,157 @@
+import { useCallback, useContext, useEffect, useState } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   StyleSheet,
   ScrollView,
+  ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-
-const HISTORY_CARDS = [
-  {
-    dayAbbr: 'Mon',
-    dayNum: '12',
-    title: 'Cajicá road closure',
-    desc: 'Maintenance work completed.',
-    badge: null as string | null,
-  },
-  {
-    dayAbbr: 'Fri',
-    dayNum: '09',
-    title: 'Normal traffic',
-    desc: 'Steady flow on all main sectors.',
-    badge: 'Predictable' as string | null,
-  },
-];
+import { getRoutes } from '@/utils/mapsService';
+import { SABANA_LOCATIONS } from '@/constants/locations';
+import { PlanningContext } from '@/context/PlanningContext/PlanningContext';
+import { AuthContext } from '@/context/AuthContext/AuthContext';
 
 const NAV_TABS = [
   { icon: 'home', label: 'Inicio', active: false, route: '/' },
   { icon: 'notifications', label: 'Alertas', active: true, route: null },
-  { icon: 'history', label: 'Historial', active: false, route: '/weekly-history' },
+  { icon: 'event', label: 'Mi Día', active: false, route: '/plan-day' },
   { icon: 'account-circle', label: 'Perfil', active: false, route: '/profile' },
 ];
 
+// Corridors to monitor
+const CORRIDORS = [
+  { originId: 'chia_centro', destId: 'unisabana', label: 'Chía → Universidad' },
+  { originId: 'cajica', destId: 'unisabana', label: 'Cajicá → Universidad' },
+  { originId: 'chia_centro', destId: 'bogota_norte', label: 'Chía → Bogotá Norte' },
+];
+
+interface CorridorStatus {
+  label: string;
+  durationMinutes: number;
+  baseMinutes: number;
+  ratio: number;
+  delayMinutes: number;
+  level: 'normal' | 'moderate' | 'heavy';
+  error?: boolean;
+}
+
+function formatTime12h(time24: string): string {
+  const [h, m] = time24.split(':').map(Number);
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${ampm}`;
+}
+
+function getLevel(ratio: number): 'normal' | 'moderate' | 'heavy' {
+  if (ratio < 1.15) return 'normal';
+  if (ratio < 1.4) return 'moderate';
+  return 'heavy';
+}
+
+const LEVEL_THEME = {
+  normal: { bg: '#EBF5E9', border: '#2D751A', text: '#2D751A', icon: 'check-circle', label: 'Normal' },
+  moderate: { bg: '#F8F1E8', border: '#8F5A12', text: '#8F5A12', icon: 'warning', label: 'Moderado' },
+  heavy: { bg: '#FCECEC', border: '#B03A39', text: '#B03A39', icon: 'dangerous', label: 'Congestionado' },
+};
+
 export default function AlertsScreen() {
+  const { state: planState } = useContext(PlanningContext);
+  const { state: authState } = useContext(AuthContext);
+  const user = authState.user;
+
+  const [corridors, setCorridors] = useState<CorridorStatus[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+
+  const fetchTrafficData = useCallback(async () => {
+    const results = await Promise.all(
+      CORRIDORS.map(async (corridor) => {
+        const origin = SABANA_LOCATIONS.find(l => l.id === corridor.originId)!;
+        const dest = SABANA_LOCATIONS.find(l => l.id === corridor.destId)!;
+        try {
+          const routes = await getRoutes(origin.coordinate, dest.coordinate);
+          const best = routes[0];
+          const durationMinutes = Math.round(best.durationInTrafficSeconds / 60);
+          const baseMinutes = Math.round(best.durationSeconds / 60);
+          const ratio = best.durationInTrafficSeconds / best.durationSeconds;
+          const delayMinutes = Math.round((best.durationInTrafficSeconds - best.durationSeconds) / 60);
+          return {
+            label: corridor.label,
+            durationMinutes,
+            baseMinutes,
+            ratio,
+            delayMinutes,
+            level: getLevel(ratio),
+          } satisfies CorridorStatus;
+        } catch {
+          return {
+            label: corridor.label,
+            durationMinutes: 0,
+            baseMinutes: 0,
+            ratio: 1,
+            delayMinutes: 0,
+            level: 'normal' as const,
+            error: true,
+          };
+        }
+      }),
+    );
+    setCorridors(results);
+    setLastUpdated(new Date());
+  }, []);
+
+  useEffect(() => {
+    setLoading(true);
+    fetchTrafficData().finally(() => setLoading(false));
+  }, [fetchTrafficData]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchTrafficData();
+    setRefreshing(false);
+  }, [fetchTrafficData]);
+
+  const initials = user
+    ? `${(user.firstname ?? '')[0] ?? ''}${(user.lastname ?? '')[0] ?? ''}`.toUpperCase() || '?'
+    : '?';
+
+  const heavyCorridor = corridors.find(c => c.level === 'heavy');
+  const moderateCorridor = corridors.find(c => c.level === 'moderate');
+  const alertCorridor = heavyCorridor ?? moderateCorridor;
+
+  const upcomingTrips = planState.trips.filter(t => {
+    const [h, m] = t.departureSuggested.split(':').map(Number);
+    const now = new Date();
+    const depTotal = h * 60 + m;
+    const nowTotal = now.getHours() * 60 + now.getMinutes();
+    return depTotal > nowTotal;
+  });
+
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <StatusBar style="light" />
 
-      {/* Dark blue header */}
+      {/* Header */}
       <View style={styles.header}>
         <View>
           <View style={styles.headerTitleRow}>
             <MaterialIcons name="navigation" size={22} color="#fff" />
             <Text style={styles.headerTitle}>Sabana Centro</Text>
           </View>
-          <Text style={styles.headerSub}>Notificaciones inteligentes</Text>
+          <Text style={styles.headerSub}>Monitoreo de tráfico en tiempo real</Text>
         </View>
         <TouchableOpacity
           style={styles.avatar}
           onPress={() => router.push('/profile' as any)}
           activeOpacity={0.85}
         >
-          <Text style={styles.avatarText}>DN</Text>
+          <Text style={styles.avatarText}>{initials}</Text>
         </TouchableOpacity>
       </View>
 
@@ -61,95 +159,164 @@ export default function AlertsScreen() {
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#185FA5']} />
+        }
       >
         {/* Page title */}
         <View style={styles.pageTitleRow}>
           <Text style={styles.pageTitle}>Alertas</Text>
-          <MaterialIcons name="tune" size={24} color="#1960a6" />
+          <TouchableOpacity onPress={onRefresh} hitSlop={8}>
+            <MaterialIcons name="refresh" size={24} color="#185FA5" />
+          </TouchableOpacity>
         </View>
 
-        {/* Push notification card */}
-        <View style={styles.pushCard}>
-          <View style={styles.pushCardTop}>
-            <View style={styles.nowBadge}>
-              <Text style={styles.nowBadgeText}>AHORA MISMO</Text>
+        {lastUpdated && (
+          <Text style={styles.lastUpdated}>
+            Actualizado: {lastUpdated.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}
+          </Text>
+        )}
+
+        {/* Alert banner — shown only when there's congestion */}
+        {!loading && alertCorridor && (
+          <View style={[styles.anomalyBanner, { borderLeftColor: LEVEL_THEME[alertCorridor.level].border }]}>
+            <View style={{ marginTop: 4 }}>
+              <View style={[styles.anomalyDot, { backgroundColor: LEVEL_THEME[alertCorridor.level].border }]} />
             </View>
-            <MaterialIcons name="notifications-active" size={22} color="rgba(255,255,255,0.6)" />
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.anomalyTitle, { color: LEVEL_THEME[alertCorridor.level].text }]}>
+                {alertCorridor.level === 'heavy' ? 'Congestión detectada' : 'Tráfico moderado'} — {alertCorridor.label}
+              </Text>
+              <Text style={[styles.anomalyBody, { color: LEVEL_THEME[alertCorridor.level].text + 'CC' }]}>
+                {alertCorridor.delayMinutes > 0
+                  ? `+${alertCorridor.delayMinutes} min sobre el tiempo normal. Considera salir antes.`
+                  : 'Tráfico ligeramente por encima de lo normal.'}
+              </Text>
+            </View>
+            <MaterialIcons name="warning" size={22} color={LEVEL_THEME[alertCorridor.level].border} />
           </View>
-          <View style={{ gap: 6 }}>
-            <Text style={styles.pushTitle}>Sale en 30 min — Hoy a las 6:32 am</Text>
-            <Text style={styles.pushBody}>Ruta Autopista predecible today (±6 min)</Text>
-          </View>
-          <View style={styles.pushDivider} />
-          <View style={styles.pushActions}>
-            <TouchableOpacity style={styles.pushBtnPrimary} activeOpacity={0.85}>
-              <Text style={styles.pushBtnPrimaryText}>Ver Mapa</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.pushBtnSecondary} activeOpacity={0.85}>
-              <Text style={styles.pushBtnSecondaryText}>Posponer</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+        )}
 
-        {/* Anomaly banner */}
-        <View style={styles.anomalyBanner}>
-          <View style={{ marginTop: 4 }}>
-            <View style={styles.anomalyDot} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.anomalyTitle}>Anomalía detectada — Ruta Calle 19</Text>
-            <Text style={styles.anomalyBody}>
-              Tráfico 47% más lento de lo habitual por accidente menor.
-            </Text>
-          </View>
-          <MaterialIcons name="warning" size={22} color="#ba1a1a" />
-        </View>
+        {/* Upcoming trips section */}
+        {upcomingTrips.length > 0 && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <MaterialIcons name="notifications-active" size={18} color="#185FA5" />
+              <Text style={styles.sectionTitle}>Próximas salidas de hoy</Text>
+            </View>
+            {upcomingTrips.map(trip => {
+              const notifH = Math.floor(Math.max(0, ...(() => {
+                const [h, m] = trip.departureSuggested.split(':').map(Number);
+                return [h * 60 + m - 30];
+              })()) / 60);
+              const notifM = Math.max(0, ...(() => {
+                const [h, m] = trip.departureSuggested.split(':').map(Number);
+                return [(h * 60 + m - 30) % 60];
+              })());
+              const notifTime = `${String(notifH).padStart(2, '0')}:${String(notifM).padStart(2, '0')}`;
 
-        {/* History section header */}
-        <View style={styles.historyDivider}>
-          <Text style={styles.historyDividerLabel}>HISTORIAL RECIENTE</Text>
-        </View>
-
-        {/* History cards */}
-        <View style={{ gap: 12 }}>
-          {HISTORY_CARDS.map(card => (
-            <View key={card.title} style={styles.historyCard}>
-              <View style={styles.historyDateBox}>
-                <Text style={styles.historyDayAbbr}>{card.dayAbbr}</Text>
-                <Text style={styles.historyDayNum}>{card.dayNum}</Text>
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.historyTitle}>{card.title}</Text>
-                <Text style={styles.historyDesc}>{card.desc}</Text>
-              </View>
-              {card.badge ? (
-                <View style={styles.predictBadge}>
-                  <Text style={styles.predictBadgeText}>{card.badge}</Text>
+              return (
+                <View key={trip.id} style={styles.pushCard}>
+                  <View style={styles.pushCardTop}>
+                    <View style={styles.nowBadge}>
+                      <Text style={styles.nowBadgeText}>
+                        SALE A LAS {formatTime12h(trip.departureSuggested)}
+                      </Text>
+                    </View>
+                    <MaterialIcons name="notifications-active" size={18} color="rgba(255,255,255,0.6)" />
+                  </View>
+                  <View style={{ gap: 4 }}>
+                    <Text style={styles.pushTitle}>
+                      Llegar a {trip.destinationLabel.split(' ')[0]} a las {formatTime12h(trip.arrivalTime)}
+                    </Text>
+                    <Text style={styles.pushBody}>
+                      {trip.originLabel} → {trip.destinationLabel}{'\n'}
+                      Tiempo estimado: {trip.estimatedMinutes} min ± {trip.marginMinutes} min
+                      {trip.marginMinutes < 10 ? ' 🟢' : trip.marginMinutes < 20 ? ' 🟡' : ' 🔴'}
+                    </Text>
+                  </View>
+                  <View style={styles.pushDivider} />
+                  <View style={styles.pushActions}>
+                    <TouchableOpacity
+                      style={styles.pushBtnPrimary}
+                      activeOpacity={0.85}
+                      onPress={() => router.push('/' as any)}
+                    >
+                      <Text style={styles.pushBtnPrimaryText}>Ver Rutas</Text>
+                    </TouchableOpacity>
+                    <View style={styles.pushBtnSecondary}>
+                      <Text style={styles.pushBtnSecondaryText}>
+                        Notif: {formatTime12h(notifTime)}
+                      </Text>
+                    </View>
+                  </View>
                 </View>
-              ) : (
-                <MaterialIcons name="chevron-right" size={22} color="#747780" />
-              )}
+              );
+            })}
+          </View>
+        )}
+
+        {/* Corridors section */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <MaterialIcons name="analytics" size={18} color="#185FA5" />
+            <Text style={styles.sectionTitle}>Estado de corredores</Text>
+          </View>
+
+          {loading ? (
+            <View style={styles.loadingBox}>
+              <ActivityIndicator color="#185FA5" />
+              <Text style={styles.loadingText}>Consultando tráfico en tiempo real…</Text>
             </View>
-          ))}
+          ) : (
+            corridors.map(c => {
+              const theme = LEVEL_THEME[c.level];
+              return (
+                <View key={c.label} style={[styles.corridorCard, { borderLeftColor: theme.border }]}>
+                  <View style={styles.corridorTop}>
+                    <MaterialIcons name={theme.icon as any} size={20} color={theme.text} />
+                    <Text style={[styles.corridorLabel, { color: theme.text }]}>{c.label}</Text>
+                    <View style={[styles.levelBadge, { backgroundColor: theme.bg }]}>
+                      <Text style={[styles.levelBadgeText, { color: theme.text }]}>{theme.label}</Text>
+                    </View>
+                  </View>
+                  {c.error ? (
+                    <Text style={styles.corridorError}>Sin datos disponibles</Text>
+                  ) : (
+                    <View style={styles.corridorStats}>
+                      <Text style={styles.corridorTime}>
+                        {c.durationMinutes} min con tráfico
+                      </Text>
+                      {c.delayMinutes > 0 && (
+                        <Text style={[styles.corridorDelay, { color: theme.text }]}>
+                          +{c.delayMinutes} min vs tiempo normal
+                        </Text>
+                      )}
+                    </View>
+                  )}
+                </View>
+              );
+            })
+          )}
         </View>
 
-        {/* Share button */}
-        <TouchableOpacity style={styles.shareButton} activeOpacity={0.85}>
-          <MaterialIcons name="share" size={22} color="#1b3a6b" />
-          <Text style={styles.shareButtonText}>Compartir ruta actual por WhatsApp</Text>
-        </TouchableOpacity>
-
-        {/* Map placeholder */}
-        <View style={styles.mapBox}>
-          <View style={styles.mapPlaceholder}>
-            <MaterialIcons name="map" size={44} color="#B0B8C4" />
-          </View>
-          <View style={styles.mapOverlay} />
-          <View style={styles.mapPill}>
-            <View style={styles.mapLiveDot} />
-            <Text style={styles.mapPillText}>MONITOREO EN VIVO: SABANA</Text>
-          </View>
-        </View>
+        {/* No upcoming trips message */}
+        {upcomingTrips.length === 0 && (
+          <TouchableOpacity
+            style={styles.planDayBanner}
+            activeOpacity={0.85}
+            onPress={() => router.push('/plan-day' as any)}
+          >
+            <MaterialIcons name="event" size={22} color="#185FA5" />
+            <View style={{ flex: 1, gap: 2 }}>
+              <Text style={styles.planDayBannerTitle}>Sin viajes planificados hoy</Text>
+              <Text style={styles.planDayBannerSub}>
+                Agrega viajes en "Mi Día" para ver alertas de salida aquí.
+              </Text>
+            </View>
+            <MaterialIcons name="chevron-right" size={22} color="#185FA5" />
+          </TouchableOpacity>
+        )}
       </ScrollView>
 
       <View style={styles.bottomNav}>
@@ -177,7 +344,6 @@ export default function AlertsScreen() {
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#F4F6F8' },
 
-  // Dark blue header
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     backgroundColor: '#1B3A6B',
@@ -185,7 +351,7 @@ const styles = StyleSheet.create({
   },
   headerTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
   headerTitle: { fontSize: 24, fontWeight: '700', color: '#fff', letterSpacing: -0.5 },
-  headerSub: { fontSize: 15, fontWeight: '400', color: 'rgba(255,255,255,0.8)', lineHeight: 20 },
+  headerSub: { fontSize: 13, fontWeight: '400', color: 'rgba(255,255,255,0.8)' },
   avatar: {
     width: 40, height: 40, borderRadius: 20,
     backgroundColor: 'rgba(255,255,255,0.2)',
@@ -195,129 +361,78 @@ const styles = StyleSheet.create({
   avatarText: { color: '#fff', fontWeight: '700', fontSize: 14 },
 
   scroll: { flex: 1 },
-  scrollContent: { padding: 16, gap: 20, paddingBottom: 24 },
+  scrollContent: { padding: 16, gap: 16, paddingBottom: 24 },
 
-  // Page title row
   pageTitleRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
   },
   pageTitle: { fontSize: 26, fontWeight: '700', color: '#191c1e', letterSpacing: -0.5 },
+  lastUpdated: { fontSize: 11, color: '#9EA3AC', marginTop: -8 },
 
-  // Push notification card
+  section: { gap: 10 },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  sectionTitle: { fontSize: 15, fontWeight: '700', color: '#1B3A6B' },
+
+  anomalyBanner: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 12,
+    backgroundColor: '#FCECEC', borderLeftWidth: 4,
+    borderRadius: 8, padding: 14,
+  },
+  anomalyDot: { width: 10, height: 10, borderRadius: 5, marginTop: 4 },
+  anomalyTitle: { fontSize: 15, fontWeight: '700', lineHeight: 22 },
+  anomalyBody: { fontSize: 13, lineHeight: 18, marginTop: 2 },
+
+  // Push card (upcoming trips)
   pushCard: {
-    backgroundColor: '#1b3a6b',
-    borderRadius: 12, padding: 16, gap: 12,
+    backgroundColor: '#1b3a6b', borderRadius: 12, padding: 16, gap: 12,
     shadowColor: '#1b3a6b', shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.25, shadowRadius: 12, elevation: 6,
-    overflow: 'hidden',
   },
   pushCardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   nowBadge: {
-    backgroundColor: '#1960a6',
-    paddingHorizontal: 12, paddingVertical: 5,
-    borderRadius: 9999,
+    backgroundColor: '#1960a6', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 9999,
   },
-  nowBadgeText: { fontSize: 10, fontWeight: '700', color: '#fff', letterSpacing: 1 },
-  pushTitle: { fontSize: 20, fontWeight: '600', color: '#fff', lineHeight: 28, letterSpacing: -0.3 },
-  pushBody: { fontSize: 14, lineHeight: 20, color: 'rgba(255,255,255,0.9)' },
+  nowBadgeText: { fontSize: 9, fontWeight: '700', color: '#fff', letterSpacing: 1 },
+  pushTitle: { fontSize: 17, fontWeight: '600', color: '#fff', lineHeight: 24, letterSpacing: -0.3 },
+  pushBody: { fontSize: 13, lineHeight: 20, color: 'rgba(255,255,255,0.85)' },
   pushDivider: { borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.1)' },
   pushActions: { flexDirection: 'row', gap: 12 },
   pushBtnPrimary: {
-    flex: 1, backgroundColor: '#fff',
-    paddingVertical: 10, borderRadius: 8,
-    alignItems: 'center',
+    flex: 1, backgroundColor: '#fff', paddingVertical: 10, borderRadius: 8, alignItems: 'center',
   },
-  pushBtnPrimaryText: { fontSize: 12, fontWeight: '600', color: '#1b3a6b', letterSpacing: 0.2 },
+  pushBtnPrimaryText: { fontSize: 12, fontWeight: '600', color: '#1b3a6b' },
   pushBtnSecondary: {
-    flex: 1,
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)',
-    paddingVertical: 10, borderRadius: 8,
-    alignItems: 'center',
+    flex: 1, borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)',
+    paddingVertical: 10, borderRadius: 8, alignItems: 'center',
   },
-  pushBtnSecondaryText: { fontSize: 12, fontWeight: '600', color: '#fff', letterSpacing: 0.2 },
+  pushBtnSecondaryText: { fontSize: 11, fontWeight: '600', color: '#fff' },
 
-  // Anomaly banner
-  anomalyBanner: {
-    flexDirection: 'row', alignItems: 'flex-start', gap: 14,
-    backgroundColor: '#FCECEC',
-    borderLeftWidth: 4, borderLeftColor: '#ba1a1a',
-    borderRadius: 8, padding: 14,
-  },
-  anomalyDot: {
-    width: 12, height: 12, borderRadius: 6, backgroundColor: '#ba1a1a',
-  },
-  anomalyTitle: {
-    fontSize: 16, fontWeight: '600', color: '#ba1a1a', lineHeight: 22,
-  },
-  anomalyBody: {
-    fontSize: 14, lineHeight: 20, color: 'rgba(186,26,26,0.8)', marginTop: 2,
-  },
+  // Corridor cards
+  loadingBox: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16, backgroundColor: '#fff', borderRadius: 10 },
+  loadingText: { fontSize: 13, color: '#747780' },
 
-  // History section divider
-  historyDivider: {
-    borderBottomWidth: 1, borderBottomColor: '#c4c6d0', paddingBottom: 8,
+  corridorCard: {
+    backgroundColor: '#fff', borderRadius: 10,
+    borderWidth: 1, borderColor: '#C5CDD8', borderLeftWidth: 4,
+    padding: 14, gap: 6,
   },
-  historyDividerLabel: {
-    fontSize: 12, fontWeight: '600', color: '#44474f',
-    letterSpacing: 1.5, textTransform: 'uppercase',
-  },
+  corridorTop: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  corridorLabel: { flex: 1, fontSize: 14, fontWeight: '600' },
+  levelBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 9999 },
+  levelBadgeText: { fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
+  corridorStats: { paddingLeft: 28, gap: 2 },
+  corridorTime: { fontSize: 15, fontWeight: '700', color: '#1B3A6B' },
+  corridorDelay: { fontSize: 12, fontWeight: '500' },
+  corridorError: { fontSize: 12, color: '#9EA3AC', paddingLeft: 28 },
 
-  // History cards
-  historyCard: {
-    flexDirection: 'row', alignItems: 'center', gap: 14,
-    backgroundColor: '#fff',
-    borderWidth: 1, borderColor: '#C5CDD8',
+  // Plan day banner
+  planDayBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: '#EBF3FF', borderWidth: 1, borderColor: '#9ec5ff',
     borderRadius: 12, padding: 14,
   },
-  historyDateBox: {
-    width: 48, height: 48,
-    backgroundColor: '#eceef0',
-    borderRadius: 8,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  historyDayAbbr: {
-    fontSize: 10, fontWeight: '700', color: '#44474f',
-    textTransform: 'uppercase', letterSpacing: 0.5,
-  },
-  historyDayNum: { fontSize: 20, fontWeight: '600', color: '#002452', lineHeight: 26 },
-  historyTitle: { fontSize: 16, fontWeight: '600', color: '#191c1e', lineHeight: 22 },
-  historyDesc: { fontSize: 14, color: '#44474f', lineHeight: 20, marginTop: 2 },
-  predictBadge: {
-    backgroundColor: '#EBF5E9',
-    paddingHorizontal: 8, paddingVertical: 4,
-    borderRadius: 4,
-  },
-  predictBadgeText: { fontSize: 10, fontWeight: '700', color: '#2D751A', textTransform: 'uppercase' },
-
-  // Share button
-  shareButton: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
-    borderWidth: 2, borderColor: '#1b3a6b',
-    borderRadius: 12, paddingVertical: 16,
-  },
-  shareButtonText: { fontSize: 16, fontWeight: '600', color: '#1b3a6b' },
-
-  // Map placeholder
-  mapBox: {
-    height: 160, borderRadius: 12, overflow: 'hidden',
-    borderWidth: 1, borderColor: '#C5CDD8',
-  },
-  mapPlaceholder: {
-    flex: 1, backgroundColor: '#d8dadc',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  mapOverlay: {
-    position: 'absolute', inset: 0, bottom: 0, left: 0, right: 0, height: 160,
-    backgroundColor: 'rgba(0,36,82,0.35)',
-  },
-  mapPill: {
-    position: 'absolute', bottom: 12, left: 12,
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-  },
-  mapLiveDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#22c55e' },
-  mapPillText: {
-    fontSize: 11, fontWeight: '700', color: '#fff', letterSpacing: 0.8,
-  },
+  planDayBannerTitle: { fontSize: 14, fontWeight: '700', color: '#1B3A6B' },
+  planDayBannerSub: { fontSize: 12, color: '#185FA5' },
 
   // Bottom nav
   bottomNav: {
@@ -326,13 +441,8 @@ const styles = StyleSheet.create({
     shadowColor: '#000', shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.05, shadowRadius: 6, elevation: 8,
   },
-  navTab: {
-    flex: 1, alignItems: 'center', justifyContent: 'center', gap: 2, paddingVertical: 8,
-  },
+  navTab: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 2, paddingVertical: 8 },
   navTabActive: { backgroundColor: '#F0F7FF', borderRadius: 12 },
-  navLabel: {
-    fontWeight: '500', fontSize: 10, letterSpacing: 0.8,
-    textTransform: 'uppercase', color: '#94a3b8',
-  },
+  navLabel: { fontWeight: '500', fontSize: 10, letterSpacing: 0.8, textTransform: 'uppercase', color: '#94a3b8' },
   navLabelActive: { color: '#185FA5', fontWeight: '700' },
 });

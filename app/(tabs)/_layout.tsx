@@ -4,7 +4,7 @@ export default function TabsLayout() {
   return (
     <Stack initialRouteName="onboarding" screenOptions={{ headerShown: false }}>
       <Stack.Screen name="onboarding" />
-      <Stack.Screen name="login" />
+      <Stack.Screen name="login" options={{ gestureEnabled: false }} />
       <Stack.Screen name="register" />
       <Stack.Screen name="route-setup" />
       <Stack.Screen name="route-detail" />
@@ -17,6 +17,7 @@ export default function TabsLayout() {
       <Stack.Screen name="guided-breathing" />
       <Stack.Screen name="sabana-zen-chat" />
       <Stack.Screen name="index" />
+      <Stack.Screen name="plan-day" />
       <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
     </Stack>
   );

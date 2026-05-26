@@ -10,10 +10,11 @@ import {
   Platform,
   ActivityIndicator,
   Alert,
+  BackHandler,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons, AntDesign, Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { AuthContext } from '@/context/AuthContext/AuthContext';
 
@@ -24,6 +25,12 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  // Block Android hardware back button on the login screen
+  useFocusEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => true);
+    return () => sub.remove();
+  });
+
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <StatusBar style="dark" />
@@ -32,13 +39,9 @@ export default function LoginScreen() {
       <View style={styles.bgDecoTop} pointerEvents="none" />
       <View style={styles.bgDecoBottom} pointerEvents="none" />
 
-      {/* Header */}
+      {/* Header — no back button after logout */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <MaterialIcons name="arrow-back" size={24} color="#1B3A6B" />
-        </TouchableOpacity>
         <Text style={styles.headerTitle}>Sabana Inteligente</Text>
-        <View style={styles.headerSpacer} />
       </View>
 
       <KeyboardAvoidingView
@@ -152,11 +155,31 @@ export default function LoginScreen() {
 
             {/* Social buttons */}
             <View style={styles.socialRow}>
-              <TouchableOpacity style={styles.socialButton} activeOpacity={0.85}>
+              <TouchableOpacity
+                style={styles.socialButton}
+                activeOpacity={0.85}
+                onPress={() =>
+                  Alert.alert(
+                    'Google Sign-In',
+                    'El acceso con Google estará disponible en la APK del proyecto. Por ahora usa email y contraseña.',
+                    [{ text: 'Entendido' }],
+                  )
+                }
+              >
                 <AntDesign name="google" size={20} color="#EA4335" />
                 <Text style={styles.socialText}>Google</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.socialButton} activeOpacity={0.85}>
+              <TouchableOpacity
+                style={styles.socialButton}
+                activeOpacity={0.85}
+                onPress={() =>
+                  Alert.alert(
+                    'Apple Sign-In',
+                    'El acceso con Apple requiere un dispositivo iOS con la APK del proyecto.',
+                    [{ text: 'Entendido' }],
+                  )
+                }
+              >
                 <Ionicons name="logo-apple" size={20} color="#000" />
                 <Text style={styles.socialText}>Apple</Text>
               </TouchableOpacity>
@@ -177,224 +200,80 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F4F6F8',
-  },
-  flex: {
-    flex: 1,
-  },
+  container: { flex: 1, backgroundColor: '#F4F6F8' },
+  flex: { flex: 1 },
 
   bgDecoTop: {
-    position: 'absolute',
-    top: -80,
-    right: -80,
-    width: 350,
-    height: 350,
-    borderRadius: 175,
-    backgroundColor: '#7ab3ff',
-    opacity: 0.15,
+    position: 'absolute', top: -80, right: -80,
+    width: 350, height: 350, borderRadius: 175,
+    backgroundColor: '#7ab3ff', opacity: 0.15,
   },
   bgDecoBottom: {
-    position: 'absolute',
-    bottom: -80,
-    left: -80,
-    width: 350,
-    height: 350,
-    borderRadius: 175,
-    backgroundColor: '#d7e2ff',
-    opacity: 0.15,
+    position: 'absolute', bottom: -80, left: -80,
+    width: 350, height: 350, borderRadius: 175,
+    backgroundColor: '#d7e2ff', opacity: 0.15,
   },
 
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    height: 64,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#C5CDD8',
+    alignItems: 'center', justifyContent: 'center',
+    height: 56, borderBottomWidth: 1, borderBottomColor: '#C5CDD8',
     backgroundColor: '#F4F6F8',
   },
-  backButton: {
-    padding: 4,
-  },
-  headerTitle: {
-    fontWeight: '600',
-    fontSize: 18,
-    color: '#1B3A6B',
-    letterSpacing: -0.2,
-  },
-  headerSpacer: {
-    width: 32,
-  },
+  headerTitle: { fontWeight: '700', fontSize: 18, color: '#1B3A6B', letterSpacing: -0.2 },
 
   scrollContent: {
-    flexGrow: 1,
-    paddingHorizontal: 16,
-    paddingTop: 24,
-    paddingBottom: 32,
-    alignItems: 'center',
+    flexGrow: 1, paddingHorizontal: 16,
+    paddingTop: 24, paddingBottom: 32, alignItems: 'center',
   },
 
-  hero: {
-    alignItems: 'center',
-    marginBottom: 24,
-    width: '100%',
-  },
+  hero: { alignItems: 'center', marginBottom: 24, width: '100%' },
   heroIconContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 12,
-    backgroundColor: '#1B3A6B',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 16,
+    width: 80, height: 80, borderRadius: 12,
+    backgroundColor: '#1B3A6B', alignItems: 'center', justifyContent: 'center', marginBottom: 16,
   },
   heroTitle: {
-    fontWeight: '700',
-    fontSize: 24,
-    lineHeight: 32,
-    letterSpacing: -0.5,
-    color: '#002452',
-    textAlign: 'center',
-    marginBottom: 4,
+    fontWeight: '700', fontSize: 24, lineHeight: 32, letterSpacing: -0.5,
+    color: '#002452', textAlign: 'center', marginBottom: 4,
   },
-  heroSubtitle: {
-    fontWeight: '400',
-    fontSize: 14,
-    lineHeight: 20,
-    color: '#44474f',
-    textAlign: 'center',
-  },
+  heroSubtitle: { fontWeight: '400', fontSize: 14, lineHeight: 20, color: '#44474f', textAlign: 'center' },
 
   card: {
-    width: '100%',
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#C5CDD8',
-    padding: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 4,
-    elevation: 2,
+    width: '100%', backgroundColor: '#ffffff', borderRadius: 12,
+    borderWidth: 1, borderColor: '#C5CDD8', padding: 24,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06, shadowRadius: 4, elevation: 2,
   },
 
-  field: {
-    marginBottom: 16,
-  },
-  label: {
-    fontWeight: '600',
-    fontSize: 12,
-    lineHeight: 16,
-    letterSpacing: 0.4,
-    color: '#44474f',
-    marginBottom: 4,
-  },
-  labelRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  forgotLink: {
-    fontWeight: '600',
-    fontSize: 12,
-    color: '#185FA5',
-  },
+  field: { marginBottom: 16 },
+  label: { fontWeight: '600', fontSize: 12, lineHeight: 16, letterSpacing: 0.4, color: '#44474f', marginBottom: 4 },
+  labelRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
+  forgotLink: { fontWeight: '600', fontSize: 12, color: '#185FA5' },
   inputWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#C5CDD8',
-    borderRadius: 8,
-    backgroundColor: '#fff',
+    flexDirection: 'row', alignItems: 'center',
+    borderWidth: 1, borderColor: '#C5CDD8', borderRadius: 8, backgroundColor: '#fff',
   },
-  inputIcon: {
-    marginLeft: 12,
-  },
-  input: {
-    flex: 1,
-    paddingVertical: 12,
-    paddingHorizontal: 8,
-    fontSize: 14,
-    color: '#191c1e',
-  },
-  inputPadRight: {
-    paddingRight: 44,
-  },
-  eyeButton: {
-    position: 'absolute',
-    right: 12,
-    padding: 4,
-  },
+  inputIcon: { marginLeft: 12 },
+  input: { flex: 1, paddingVertical: 12, paddingHorizontal: 8, fontSize: 14, color: '#191c1e' },
+  inputPadRight: { paddingRight: 44 },
+  eyeButton: { position: 'absolute', right: 12, padding: 4 },
 
   submitButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: '#185FA5',
-    borderRadius: 8,
-    paddingVertical: 14,
-    marginTop: 8,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    backgroundColor: '#185FA5', borderRadius: 8, paddingVertical: 14, marginTop: 8,
   },
-  submitText: {
-    fontWeight: '600',
-    fontSize: 16,
-    color: '#ffffff',
-  },
+  submitText: { fontWeight: '600', fontSize: 16, color: '#ffffff' },
 
-  dividerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 24,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: '#C5CDD8',
-  },
-  dividerLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#44474f',
-    marginHorizontal: 8,
-    letterSpacing: 0.5,
-  },
+  dividerRow: { flexDirection: 'row', alignItems: 'center', marginVertical: 24 },
+  dividerLine: { flex: 1, height: 1, backgroundColor: '#C5CDD8' },
+  dividerLabel: { fontSize: 11, fontWeight: '600', color: '#44474f', marginHorizontal: 8, letterSpacing: 0.5 },
 
-  socialRow: {
-    flexDirection: 'row',
-    gap: 12,
-  },
+  socialRow: { flexDirection: 'row', gap: 12 },
   socialButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 10,
-    borderWidth: 1,
-    borderColor: '#C5CDD8',
-    borderRadius: 8,
-    backgroundColor: '#fff',
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    paddingVertical: 12, borderWidth: 1, borderColor: '#C5CDD8', borderRadius: 8, backgroundColor: '#fff',
   },
-  socialText: {
-    fontWeight: '600',
-    fontSize: 12,
-    color: '#191c1e',
-  },
+  socialText: { fontWeight: '600', fontSize: 14, color: '#191c1e' },
 
-  footerText: {
-    marginTop: 24,
-    fontSize: 14,
-    color: '#44474f',
-    textAlign: 'center',
-  },
-  signupLink: {
-    color: '#185FA5',
-    fontWeight: '600',
-  },
+  footerText: { marginTop: 24, fontSize: 14, color: '#44474f', textAlign: 'center' },
+  signupLink: { color: '#185FA5', fontWeight: '600' },
 });
