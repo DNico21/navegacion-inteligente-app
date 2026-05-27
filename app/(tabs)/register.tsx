@@ -10,12 +10,138 @@ import {
   Platform,
   ActivityIndicator,
   Alert,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons, AntDesign, FontAwesome } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { AuthContext } from '@/context/AuthContext/AuthContext';
+
+// ─── Legal Modal ──────────────────────────────────────────────────────────────
+
+type LegalType = 'terms' | 'privacy' | null;
+
+const TERMS_TEXT = `TÉRMINOS Y CONDICIONES DE USO
+Última actualización: mayo 2025
+
+1. ACEPTACIÓN
+Al usar Sabana Inteligente aceptas estos términos. Si no estás de acuerdo, no uses la app.
+
+2. USO PERMITIDO
+La app es para uso personal, no comercial. Está diseñada para optimizar desplazamientos en la región Sabana Centro de Colombia.
+
+3. DATOS DE TRÁFICO
+La información de tráfico proviene de Google Directions API. Los tiempos son estimaciones y pueden variar. La app no garantiza tiempos exactos de llegada.
+
+4. NOTIFICACIONES
+Al activar notificaciones, aceptas recibir alertas de salida para tus viajes planificados. Puedes desactivarlas en cualquier momento.
+
+5. CUENTA DE USUARIO
+Eres responsable de mantener la confidencialidad de tu contraseña. Notifica inmediatamente cualquier uso no autorizado de tu cuenta.
+
+6. LIMITACIÓN DE RESPONSABILIDAD
+Sabana Inteligente no es responsable por accidentes, retrasos o pérdidas derivadas del uso de la información proporcionada. Siempre conduce con precaución y respeta las normas de tránsito.
+
+7. PROPIEDAD INTELECTUAL
+Todo el contenido, diseño y código de la app es propiedad del equipo de desarrollo. Proyecto de grado — Universidad de La Sabana, 2025.
+
+8. MODIFICACIONES
+Nos reservamos el derecho de modificar estos términos con previo aviso de 15 días.
+
+9. CONTACTO
+Para consultas: train.myp@gmail.com`;
+
+const PRIVACY_TEXT = `POLÍTICA DE PRIVACIDAD
+Última actualización: mayo 2025
+
+1. DATOS QUE RECOPILAMOS
+• Nombre completo y correo electrónico (registro)
+• Viajes planificados (origen, destino, hora)
+• Preferencias de notificaciones
+• Datos de uso anónimos para mejorar la app
+
+2. CÓMO USAMOS TUS DATOS
+• Para calcular rutas y tiempos de salida personalizados
+• Para enviar notificaciones de viaje
+• Para generar tu historial de impacto (CO₂, tiempo ahorrado)
+• Nunca vendemos tus datos a terceros
+
+3. ALMACENAMIENTO
+Los datos se almacenan en Firebase (Google Cloud) con cifrado en tránsito y en reposo. Cumplimos con los estándares de seguridad de Google Cloud.
+
+4. APIS DE TERCEROS
+Usamos Google Directions API y Google Gemini AI. Sus políticas de privacidad aplican para los datos enviados a estos servicios (coordenadas de origen/destino).
+
+5. TUS DERECHOS (Ley 1581 de 2012 — Colombia)
+• Conocer, actualizar y rectificar tu información
+• Solicitar prueba de la autorización otorgada
+• Ser informado del uso de tus datos
+• Revocar la autorización y solicitar supresión de datos
+
+6. ELIMINACIÓN DE DATOS
+Para eliminar tu cuenta y datos, contáctanos en: train.myp@gmail.com
+
+7. MENORES
+La app no está dirigida a menores de 14 años. No recopilamos intencionalmente datos de menores.
+
+8. CONTACTO
+Responsable del tratamiento: Equipo Sabana Inteligente
+Correo: train.myp@gmail.com`;
+
+function LegalModal({ type, onClose }: { type: LegalType; onClose: () => void }) {
+  return (
+    <Modal visible={type !== null} transparent animationType="slide" onRequestClose={onClose}>
+      <View style={legalStyles.overlay}>
+        <View style={legalStyles.sheet}>
+          <View style={legalStyles.handle} />
+          <View style={legalStyles.header}>
+            <Text style={legalStyles.title}>
+              {type === 'terms' ? 'Términos y Condiciones' : 'Política de Privacidad'}
+            </Text>
+            <TouchableOpacity onPress={onClose} hitSlop={8}>
+              <MaterialIcons name="close" size={22} color="#747780" />
+            </TouchableOpacity>
+          </View>
+          <ScrollView style={legalStyles.body} showsVerticalScrollIndicator={false}>
+            <Text style={legalStyles.text}>
+              {type === 'terms' ? TERMS_TEXT : PRIVACY_TEXT}
+            </Text>
+          </ScrollView>
+          <TouchableOpacity style={legalStyles.acceptBtn} onPress={onClose} activeOpacity={0.88}>
+            <Text style={legalStyles.acceptText}>Entendido</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+const legalStyles = StyleSheet.create({
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' },
+  sheet: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 20, borderTopRightRadius: 20,
+    paddingTop: 12, paddingBottom: 32, paddingHorizontal: 20,
+    maxHeight: '85%',
+  },
+  handle: {
+    width: 36, height: 4, backgroundColor: '#c4c6d0',
+    borderRadius: 2, alignSelf: 'center', marginBottom: 16,
+  },
+  header: {
+    flexDirection: 'row', alignItems: 'center',
+    justifyContent: 'space-between', marginBottom: 12,
+  },
+  title: { fontSize: 17, fontWeight: '700', color: '#1B3A6B', flex: 1 },
+  body: { flex: 1 },
+  text: { fontSize: 13, color: '#44474f', lineHeight: 22 },
+  acceptBtn: {
+    marginTop: 16, paddingVertical: 14, borderRadius: 10,
+    backgroundColor: '#1B3A6B', alignItems: 'center',
+  },
+  acceptText: { fontSize: 15, fontWeight: '700', color: '#fff' },
+});
 
 export default function RegisterScreen() {
   const { signUp } = useContext(AuthContext);
@@ -26,6 +152,7 @@ export default function RegisterScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [legalModal, setLegalModal] = useState<LegalType>(null);
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
@@ -159,9 +286,14 @@ export default function RegisterScreen() {
               </View>
               <Text style={styles.termsText}>
                 Acepto los{' '}
-                <Text style={styles.termsLink}>términos y condiciones</Text>
+                <Text style={styles.termsLink} onPress={() => setLegalModal('terms')}>
+                  términos y condiciones
+                </Text>
                 {' '}y la{' '}
-                <Text style={styles.termsLink}>política de privacidad</Text>.
+                <Text style={styles.termsLink} onPress={() => setLegalModal('privacy')}>
+                  política de privacidad
+                </Text>
+                .
               </Text>
             </TouchableOpacity>
 
@@ -255,6 +387,8 @@ export default function RegisterScreen() {
           </Text>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      <LegalModal type={legalModal} onClose={() => setLegalModal(null)} />
     </SafeAreaView>
   );
 }

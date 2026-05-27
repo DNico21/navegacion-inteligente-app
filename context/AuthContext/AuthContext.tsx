@@ -1,4 +1,4 @@
-import { createContext, useEffect, useReducer } from 'react';
+import { createContext, useEffect, useReducer, useState } from 'react';
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
@@ -20,6 +20,7 @@ const authStateDefault: AuthState = {
 
 interface AuthContextProps {
   state: AuthState;
+  isLoading: boolean;
   signIn: (email: string, password: string) => Promise<boolean>;
   signUp: (email: string, password: string, fullName: string) => Promise<boolean>;
   signInWithGoogle: (idToken: string) => Promise<boolean>;
@@ -31,6 +32,7 @@ export const AuthContext = createContext({} as AuthContextProps);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(authReducer, authStateDefault);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
@@ -44,6 +46,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } else {
         dispatch({ type: 'logout' });
       }
+      setIsLoading(false);
     });
     return unsubscribe;
   }, []);
@@ -133,7 +136,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ state, signIn, signUp, signInWithGoogle, signOut, updateUser }}>
+    <AuthContext.Provider value={{ state, isLoading, signIn, signUp, signInWithGoogle, signOut, updateUser }}>
       {children}
     </AuthContext.Provider>
   );

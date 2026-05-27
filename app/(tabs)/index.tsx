@@ -16,6 +16,7 @@ import { RouteContext } from '@/context/RouteContext/RouteContext';
 import { PlanningContext } from '@/context/PlanningContext/PlanningContext';
 import { SABANA_REGION } from '@/constants/locations';
 import BottomNavBar from '@/components/BottomNavBar';
+import TripleImpactCard from '@/components/TripleImpactCard';
 
 const DEFAULT_SUGGESTION = 'Calculando el mejor horario de salida para tu ruta...';
 
@@ -104,6 +105,9 @@ export default function TodayRoutesScreen() {
             </View>
           </View>
         </View>
+
+        {/* Triple Impact */}
+        <TripleImpactCard />
 
         {/* Error */}
         {error && (

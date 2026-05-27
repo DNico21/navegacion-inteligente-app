@@ -1,4 +1,5 @@
 import '@/utils/suppressWarnings';
+import { initCrashReporter } from '@/utils/crashReporter';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -8,6 +9,8 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { AuthProvider } from '@/context/AuthContext/AuthContext';
 import { RouteProvider } from '@/context/RouteContext/RouteContext';
 import { PlanningProvider } from '@/context/PlanningContext/PlanningContext';
+
+initCrashReporter();
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();

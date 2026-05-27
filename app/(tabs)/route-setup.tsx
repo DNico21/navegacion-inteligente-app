@@ -1,16 +1,20 @@
-import { useState } from 'react';
+import { useContext, useState } from 'react';
 import {
   View,
   Text,
-  TextInput,
   TouchableOpacity,
   StyleSheet,
   ScrollView,
+  Modal,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { RouteContext } from '@/context/RouteContext/RouteContext';
+import { SABANA_LOCATIONS, LocationPoint, DEFAULT_ORIGIN, DEFAULT_DESTINATION } from '@/constants/locations';
 
 type Transport = 'car' | 'bus' | 'tm';
 
@@ -20,12 +24,36 @@ const TRANSPORT_OPTIONS: { key: Transport; icon: string; label: string }[] = [
   { key: 'tm', icon: 'train', label: 'TM' },
 ];
 
+type PickerTarget = 'origin' | 'destination' | null;
+
 export default function RouteSetupScreen() {
-  const [origin, setOrigin] = useState('Chía');
-  const [destination, setDestination] = useState('Universidad de La Sabana');
-  const [arrivalTime, setArrivalTime] = useState('07:30 AM');
+  const { setOrigin, setDestination, fetchRoutes } = useContext(RouteContext);
+
+  const [origin, setLocalOrigin] = useState<LocationPoint>(DEFAULT_ORIGIN);
+  const [destination, setLocalDestination] = useState<LocationPoint>(DEFAULT_DESTINATION);
   const [transport, setTransport] = useState<Transport>('car');
   const [notificationsOn, setNotificationsOn] = useState(true);
+  const [pickerTarget, setPickerTarget] = useState<PickerTarget>(null);
+  const [loading, setLoading] = useState(false);
+
+  const handleSelectLocation = (location: LocationPoint) => {
+    if (pickerTarget === 'origin') setLocalOrigin(location);
+    else setLocalDestination(location);
+    setPickerTarget(null);
+  };
+
+  const handleSubmit = async () => {
+    if (origin.id === destination.id) {
+      Alert.alert('Origen y destino iguales', 'Selecciona ubicaciones diferentes para calcular la ruta.');
+      return;
+    }
+    setLoading(true);
+    setOrigin(origin);
+    setDestination(destination);
+    await fetchRoutes();
+    setLoading(false);
+    router.replace('/route-detail');
+  };
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
@@ -53,54 +81,53 @@ export default function RouteSetupScreen() {
         <View style={styles.infoBanner}>
           <MaterialIcons name="info" size={20} color="#1960a6" />
           <Text style={styles.infoText}>
-            Setup rápido para recomendaciones automáticas
+            Selecciona tu origen y destino para calcular las mejores rutas
           </Text>
         </View>
 
         {/* ── Field group ── */}
         <View style={styles.fieldGroup}>
-          {/* Origin */}
+          {/* Origin picker */}
           <View style={styles.field}>
             <Text style={styles.label}>Municipio de origen</Text>
-            <TextInput
-              style={styles.input}
-              value={origin}
-              onChangeText={setOrigin}
-              placeholder="Ej. Chía"
-              placeholderTextColor="#9EA3AC"
-            />
+            <TouchableOpacity
+              style={styles.locationSelector}
+              onPress={() => setPickerTarget('origin')}
+              activeOpacity={0.85}
+            >
+              <View style={styles.locationSelectorLeft}>
+                <View style={[styles.dot, { backgroundColor: '#2D751A' }]} />
+                <View style={styles.locationSelectorText}>
+                  <Text style={styles.locationSelectorLabel}>{origin.label}</Text>
+                  <Text style={styles.locationSelectorSub}>{origin.sublabel}</Text>
+                </View>
+              </View>
+              <MaterialIcons name="expand-more" size={22} color="#747780" />
+            </TouchableOpacity>
           </View>
 
-          {/* Destination */}
+          {/* Route line connector */}
+          <View style={styles.connector}>
+            <View style={styles.connectorLine} />
+          </View>
+
+          {/* Destination picker */}
           <View style={styles.field}>
             <Text style={styles.label}>Destino principal</Text>
-            <TextInput
-              style={styles.input}
-              value={destination}
-              onChangeText={setDestination}
-              placeholder="Ej. Universidad de La Sabana"
-              placeholderTextColor="#9EA3AC"
-            />
-          </View>
-
-          {/* Arrival time */}
-          <View style={styles.field}>
-            <Text style={styles.label}>Hora de llegada deseada</Text>
-            <View style={styles.inputWrapper}>
-              <TextInput
-                style={[styles.input, styles.inputWithIcon]}
-                value={arrivalTime}
-                onChangeText={setArrivalTime}
-                placeholder="07:30 AM"
-                placeholderTextColor="#9EA3AC"
-              />
-              <MaterialIcons
-                name="schedule"
-                size={20}
-                color="#747780"
-                style={styles.inputEndIcon}
-              />
-            </View>
+            <TouchableOpacity
+              style={styles.locationSelector}
+              onPress={() => setPickerTarget('destination')}
+              activeOpacity={0.85}
+            >
+              <View style={styles.locationSelectorLeft}>
+                <View style={[styles.dot, { backgroundColor: '#1B3A6B' }]} />
+                <View style={styles.locationSelectorText}>
+                  <Text style={styles.locationSelectorLabel}>{destination.label}</Text>
+                  <Text style={styles.locationSelectorSub}>{destination.sublabel}</Text>
+                </View>
+              </View>
+              <MaterialIcons name="expand-more" size={22} color="#747780" />
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -151,11 +178,19 @@ export default function RouteSetupScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* ── Image placeholder ── */}
-        <View style={styles.imagePlaceholder}>
-          <MaterialIcons name="terrain" size={48} color="#B0B8C4" />
-          <Text style={styles.imagePlaceholderLabel}>Sabana Centro</Text>
-          <View style={styles.imageOverlay} />
+        {/* ── Route summary card ── */}
+        <View style={styles.summaryCard}>
+          <MaterialIcons name="route" size={20} color="#185FA5" />
+          <View style={styles.summaryText}>
+            <Text style={styles.summaryTitle}>
+              {origin.label.split(' ')[0]} → {destination.label.split(' ')[0]}
+            </Text>
+            <Text style={styles.summarySub}>
+              Ruta configurada · Transporte: {
+                TRANSPORT_OPTIONS.find(t => t.key === transport)?.label
+              }
+            </Text>
+          </View>
         </View>
       </ScrollView>
 
@@ -170,14 +205,72 @@ export default function RouteSetupScreen() {
           <Text style={styles.profilesLinkText}>Ver perfiles de ruta guardados</Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={styles.ctaButton}
+          style={[styles.ctaButton, loading && styles.ctaButtonDisabled]}
           activeOpacity={0.88}
-          onPress={() => router.replace('/')}
+          onPress={handleSubmit}
+          disabled={loading}
         >
-          <Text style={styles.ctaText}>Ver mis rutas ahora</Text>
-          <MaterialIcons name="chevron-right" size={22} color="#fff" />
+          {loading ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <>
+              <Text style={styles.ctaText}>Ver mis rutas ahora</Text>
+              <MaterialIcons name="chevron-right" size={22} color="#fff" />
+            </>
+          )}
         </TouchableOpacity>
       </View>
+
+      {/* ── Location picker modal ── */}
+      <Modal
+        visible={pickerTarget !== null}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setPickerTarget(null)}
+      >
+        <TouchableOpacity
+          style={styles.modalBackdrop}
+          activeOpacity={1}
+          onPress={() => setPickerTarget(null)}
+        />
+        <View style={styles.modalSheet}>
+          <View style={styles.modalHandle} />
+          <Text style={styles.modalTitle}>
+            {pickerTarget === 'origin' ? 'Selecciona el origen' : 'Selecciona el destino'}
+          </Text>
+          <ScrollView>
+            {SABANA_LOCATIONS.map((loc) => {
+              const isSelected =
+                pickerTarget === 'origin' ? loc.id === origin.id : loc.id === destination.id;
+              return (
+                <TouchableOpacity
+                  key={loc.id}
+                  style={[styles.modalItem, isSelected && styles.modalItemSelected]}
+                  onPress={() => handleSelectLocation(loc)}
+                  activeOpacity={0.85}
+                >
+                  <View style={styles.modalItemLeft}>
+                    <MaterialIcons
+                      name="place"
+                      size={22}
+                      color={isSelected ? '#1B3A6B' : '#747780'}
+                    />
+                    <View>
+                      <Text style={[styles.modalItemLabel, isSelected && styles.modalItemLabelSelected]}>
+                        {loc.label}
+                      </Text>
+                      <Text style={styles.modalItemSub}>{loc.sublabel}</Text>
+                    </View>
+                  </View>
+                  {isSelected && (
+                    <MaterialIcons name="check-circle" size={20} color="#1B3A6B" />
+                  )}
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -216,9 +309,7 @@ const styles = StyleSheet.create({
   },
 
   // ── Scroll ──
-  scroll: {
-    flex: 1,
-  },
+  scroll: { flex: 1 },
   scrollContent: {
     padding: 16,
     gap: 16,
@@ -246,15 +337,9 @@ const styles = StyleSheet.create({
   },
 
   // ── Form fields ──
-  fieldGroup: {
-    gap: 16,
-  },
-  section: {
-    gap: 8,
-  },
-  field: {
-    gap: 4,
-  },
+  fieldGroup: { gap: 4 },
+  section: { gap: 8 },
+  field: { gap: 4 },
   label: {
     fontWeight: '600',
     fontSize: 12,
@@ -262,27 +347,50 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
     color: '#44474f',
   },
-  input: {
-    height: 48,
+
+  // Location selector button
+  locationSelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    height: 60,
     backgroundColor: '#ffffff',
     borderWidth: 1,
     borderColor: '#c4c6d0',
     borderRadius: 8,
-    paddingHorizontal: 16,
-    fontSize: 16,
-    lineHeight: 24,
+    paddingHorizontal: 14,
+  },
+  locationSelectorLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  dot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  locationSelectorText: { gap: 1 },
+  locationSelectorLabel: {
+    fontSize: 15,
+    fontWeight: '600',
     color: '#191c1e',
   },
-  inputWrapper: {
-    position: 'relative',
+  locationSelectorSub: {
+    fontSize: 12,
+    color: '#747780',
   },
-  inputWithIcon: {
-    paddingRight: 44,
+
+  // Connector between origin and destination
+  connector: {
+    paddingLeft: 21,
+    height: 12,
   },
-  inputEndIcon: {
-    position: 'absolute',
-    right: 12,
-    top: 14,
+  connectorLine: {
+    width: 1,
+    flex: 1,
+    backgroundColor: '#c4c6d0',
   },
 
   // ── Transport selector ──
@@ -313,9 +421,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
     color: '#44474f',
   },
-  transportLabelActive: {
-    color: '#1B3A6B',
-  },
+  transportLabelActive: { color: '#1B3A6B' },
 
   // ── Notifications ──
   notifCard: {
@@ -355,8 +461,6 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     color: 'rgba(45,117,26,0.8)',
   },
-
-  // Toggle switch
   toggle: {
     width: 44,
     height: 24,
@@ -365,9 +469,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 2,
   },
-  toggleOn: {
-    backgroundColor: '#2D751A',
-  },
+  toggleOn: { backgroundColor: '#2D751A' },
   toggleThumb: {
     width: 20,
     height: 20,
@@ -375,34 +477,29 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     alignSelf: 'flex-start',
   },
-  toggleThumbOn: {
-    alignSelf: 'flex-end',
-  },
+  toggleThumbOn: { alignSelf: 'flex-end' },
 
-  // ── Image placeholder ──
-  imagePlaceholder: {
-    aspectRatio: 16 / 9,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#c4c6d0',
-    backgroundColor: '#d8dadc',
+  // ── Summary card ──
+  summaryCard: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
+    gap: 12,
+    backgroundColor: '#EBF3FF',
+    borderWidth: 1,
+    borderColor: '#9ec5ff',
+    borderRadius: 12,
+    padding: 14,
   },
-  imagePlaceholderLabel: {
-    marginTop: 8,
+  summaryText: { flex: 1 },
+  summaryTitle: {
+    fontWeight: '700',
+    fontSize: 15,
+    color: '#1B3A6B',
+  },
+  summarySub: {
     fontSize: 12,
-    color: '#9EA3AC',
-    fontWeight: '500',
-  },
-  imageOverlay: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: '40%',
-    backgroundColor: 'rgba(27,58,107,0.3)',
+    color: '#185FA5',
+    marginTop: 2,
   },
 
   // ── Footer ──
@@ -439,9 +536,66 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 4,
   },
+  ctaButtonDisabled: { opacity: 0.6 },
   ctaText: {
     fontWeight: '600',
     fontSize: 16,
     color: '#ffffff',
+  },
+
+  // ── Location picker modal ──
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+  },
+  modalSheet: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingTop: 12,
+    paddingBottom: 32,
+    maxHeight: '70%',
+  },
+  modalHandle: {
+    width: 36,
+    height: 4,
+    backgroundColor: '#c4c6d0',
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontWeight: '700',
+    fontSize: 18,
+    color: '#002452',
+    paddingHorizontal: 16,
+    marginBottom: 8,
+  },
+  modalItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F2F4',
+  },
+  modalItemSelected: { backgroundColor: '#EBF3FF' },
+  modalItemLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  modalItemLabel: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#191c1e',
+  },
+  modalItemLabelSelected: { color: '#1B3A6B' },
+  modalItemSub: {
+    fontSize: 12,
+    color: '#747780',
+    marginTop: 2,
   },
 });
