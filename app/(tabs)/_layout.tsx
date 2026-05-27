@@ -65,6 +65,7 @@ function AuthGuardStack({ isAuthenticated }: { isAuthenticated: boolean }) {
       <Stack.Screen name="relaxation-library" />
       <Stack.Screen name="guided-breathing" />
       <Stack.Screen name="sabana-zen-chat" />
+      <Stack.Screen name="profile" />
       <Stack.Screen name="plan-day" />
       <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
     </Stack>

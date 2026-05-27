@@ -17,6 +17,7 @@ import { MaterialIcons, AntDesign, FontAwesome } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { AuthContext } from '@/context/AuthContext/AuthContext';
+import { logEvent } from '@/utils/analyticsService';
 
 // ─── Legal Modal ──────────────────────────────────────────────────────────────
 
@@ -340,6 +341,7 @@ export default function RegisterScreen() {
                 const ok = await signUp(email, password, fullName);
                 setLoading(false);
                 if (ok) {
+                  logEvent('register', {});
                   // eslint-disable-next-line @typescript-eslint/no-explicit-any
                   router.push('/register-success' as any);
                 } else {

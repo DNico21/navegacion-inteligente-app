@@ -15,6 +15,7 @@ import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { RouteContext } from '@/context/RouteContext/RouteContext';
 import { SABANA_LOCATIONS, LocationPoint, DEFAULT_ORIGIN, DEFAULT_DESTINATION } from '@/constants/locations';
+import { logEvent } from '@/utils/analyticsService';
 
 type Transport = 'car' | 'bus' | 'tm';
 
@@ -51,6 +52,7 @@ export default function RouteSetupScreen() {
     setOrigin(origin);
     setDestination(destination);
     await fetchRoutes();
+    logEvent('route_search', { originId: origin.id, destinationId: destination.id });
     setLoading(false);
     router.replace('/route-detail');
   };

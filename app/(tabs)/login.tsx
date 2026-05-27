@@ -19,6 +19,7 @@ import { StatusBar } from 'expo-status-bar';
 import { sendPasswordResetEmail } from 'firebase/auth';
 import { auth } from '@/utils/firebaseConfig';
 import { AuthContext } from '@/context/AuthContext/AuthContext';
+import { logEvent } from '@/utils/analyticsService';
 
 export default function LoginScreen() {
   const { signIn } = useContext(AuthContext);
@@ -157,6 +158,7 @@ export default function LoginScreen() {
                 const ok = await signIn(email, password);
                 setLoading(false);
                 if (ok) {
+                  logEvent('login', {});
                   router.replace('/');
                 } else {
                   Alert.alert('Error', 'Correo o contraseña incorrectos');

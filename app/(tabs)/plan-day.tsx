@@ -17,6 +17,7 @@ import { PlanningContext, AddTripParams } from '@/context/PlanningContext/Planni
 import { PlannedTrip } from '@/context/PlanningContext/PlanningReducer';
 import { SABANA_LOCATIONS } from '@/constants/locations';
 import BottomNavBar from '@/components/BottomNavBar';
+import { logEvent } from '@/utils/analyticsService';
 
 type Transport = 'car' | 'bus' | 'tm';
 
@@ -267,6 +268,7 @@ export default function PlanDayScreen() {
 
   async function handleSave(params: AddTripParams) {
     await addTrip(params);
+    logEvent('trip_planned', { originId: params.originId, destinationId: params.destinationId });
     setShowForm(false);
   }
 
