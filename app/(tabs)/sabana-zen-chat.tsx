@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useContext, useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -8,13 +8,16 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import BottomNavBar from '@/components/BottomNavBar';
+import { AuthContext } from '@/context/AuthContext/AuthContext';
+import { sendMessageToGemini, GeminiMessage } from '@/utils/geminiService';
 
-// ─── Types & data ─────────────────────────────────────────────────────────────
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 type Sender = 'ai' | 'user';
 
@@ -27,57 +30,32 @@ interface ChatMessage {
 
 const QUICK_SUGGESTIONS = ['Afirmación del día', 'Tips de calma', '¿Cuánto falta?'];
 
-const AI_RESPONSES = [
-  'Gracias por compartir. ¿Quieres intentar una respiración rápida de 4-7-8? Te ayudará a llegar más tranquilo.',
-  'Entiendo. Recuerda: tu ruta ya está optimizada. Usa este tiempo para reconectar contigo mismo.',
-  'Aquí va tu afirmación del día: "Soy capaz de manejar cualquier situación con calma y claridad."',
-  'El tráfico de hoy tiene un retraso de ±8 min. Todo está bajo control. Respira profundo.',
-  'Excelente actitud. Cada minuto de calma en el trayecto impacta positivamente en tu día.',
-];
-
-const INITIAL_MESSAGES: ChatMessage[] = [
-  {
-    id: '1',
-    from: 'ai',
-    text: 'Hola Andrés, parece que el tráfico está pesado hoy. ¿Cómo te sientes para este trayecto?',
-    time: '10:02 AM',
-  },
-  {
-    id: '2',
-    from: 'user',
-    text: 'Un poco ansioso por llegar tarde.',
-    time: '10:03 AM',
-  },
-  {
-    id: '3',
-    from: 'ai',
-    text: 'Es comprensible, pero recuerda que ya configuraste tu ruta óptima. Tienes el control. ¿Quieres que hagamos una breve afirmación positiva o prefieres escuchar algo de música relajante?',
-    time: '10:03 AM',
-  },
-];
+const GREETING =
+  'Hola, soy Sabana Zen, tu compañero de calma en el trayecto. ¿Cómo te sientes hoy para el viaje?';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
-
-let aiResponseIndex = 0;
 
 function getTimeString() {
   const now = new Date();
   const h = now.getHours();
   const m = now.getMinutes();
-  const ampm = h >= 12 ? 'PM' : 'AM';
-  return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${ampm}`;
-}
-
-function nextAiResponse() {
-  const r = AI_RESPONSES[aiResponseIndex % AI_RESPONSES.length];
-  aiResponseIndex++;
-  return r;
+  return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${h >= 12 ? 'PM' : 'AM'}`;
 }
 
 // ─── Screen ──────────────────────────────────────────────────────────────────
 
 export default function SabanaZenChatScreen() {
-  const [messages, setMessages] = useState<ChatMessage[]>(INITIAL_MESSAGES);
+  const { state } = useContext(AuthContext);
+  const firstName = state.user?.firstname ?? 'viajero';
+
+  const initialGreeting = GREETING.replace('Hola,', `Hola ${firstName},`);
+
+  const [messages, setMessages] = useState<ChatMessage[]>([
+    { id: '0', from: 'ai', text: initialGreeting, time: getTimeString() },
+  ]);
+  const [geminiHistory, setGeminiHistory] = useState<GeminiMessage[]>([
+    { role: 'model', text: initialGreeting },
+  ]);
   const [inputText, setInputText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
@@ -86,9 +64,9 @@ export default function SabanaZenChatScreen() {
     setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 80);
   }, [messages, isTyping]);
 
-  function sendMessage(text: string) {
+  async function sendMessage(text: string) {
     const trimmed = text.trim();
-    if (!trimmed) return;
+    if (!trimmed || isTyping) return;
 
     const time = getTimeString();
     const userMsg: ChatMessage = { id: String(Date.now()), from: 'user', text: trimmed, time };
@@ -96,16 +74,30 @@ export default function SabanaZenChatScreen() {
     setInputText('');
     setIsTyping(true);
 
-    setTimeout(() => {
-      setIsTyping(false);
+    try {
+      const aiText = await sendMessageToGemini(geminiHistory, trimmed);
+
       const aiMsg: ChatMessage = {
         id: String(Date.now() + 1),
         from: 'ai',
-        text: nextAiResponse(),
+        text: aiText,
         time: getTimeString(),
       };
+
+      setGeminiHistory(prev => [
+        ...prev,
+        { role: 'user', text: trimmed },
+        { role: 'model', text: aiText },
+      ]);
       setMessages(prev => [...prev, aiMsg]);
-    }, 1200);
+    } catch (err) {
+      Alert.alert(
+        'Sin conexión',
+        'No se pudo contactar a Sabana Zen. Revisa tu conexión e inténtalo de nuevo.',
+      );
+    } finally {
+      setIsTyping(false);
+    }
   }
 
   return (
@@ -115,17 +107,26 @@ export default function SabanaZenChatScreen() {
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <TouchableOpacity style={styles.iconBtn} hitSlop={8}>
-            <MaterialIcons name="menu" size={24} color="#1B3A6B" />
-          </TouchableOpacity>
+          <View style={styles.aiAvatar}>
+            <MaterialIcons name="spa" size={22} color="#004883" />
+          </View>
           <View>
             <Text style={styles.headerTitle}>Sabana Zen</Text>
-            <Text style={styles.headerSub}>TU COMPAÑERO DE CALMA</Text>
+            <Text style={styles.headerSub}>TU COMPAÑERO DE CALMA · IA</Text>
           </View>
         </View>
-        <View style={styles.aiAvatar}>
-          <MaterialIcons name="spa" size={22} color="#004883" />
-        </View>
+        <TouchableOpacity
+          style={styles.iconBtn}
+          hitSlop={8}
+          onPress={() =>
+            Alert.alert(
+              'Sabana Zen',
+              'Powered by Google Gemini 1.5 Flash.\nTus conversaciones no se almacenan.',
+            )
+          }
+        >
+          <MaterialIcons name="info-outline" size={22} color="#64748B" />
+        </TouchableOpacity>
       </View>
 
       <KeyboardAvoidingView
@@ -157,7 +158,7 @@ export default function SabanaZenChatScreen() {
                   {msg.time}
                 </Text>
               </View>
-            )
+            ),
           )}
 
           {/* Typing indicator */}
@@ -172,7 +173,6 @@ export default function SabanaZenChatScreen() {
 
         {/* Input area */}
         <View style={styles.inputArea}>
-          {/* Quick suggestions */}
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -184,17 +184,14 @@ export default function SabanaZenChatScreen() {
                 style={styles.suggestionChip}
                 onPress={() => sendMessage(s)}
                 activeOpacity={0.8}
+                disabled={isTyping}
               >
                 <Text style={styles.suggestionText}>{s}</Text>
               </TouchableOpacity>
             ))}
           </ScrollView>
 
-          {/* Text input bar */}
           <View style={styles.inputBar}>
-            <TouchableOpacity style={styles.inputIconBtn} hitSlop={8}>
-              <MaterialIcons name="mic" size={22} color="#747780" />
-            </TouchableOpacity>
             <TextInput
               style={styles.textInput}
               value={inputText}
@@ -204,11 +201,13 @@ export default function SabanaZenChatScreen() {
               returnKeyType="send"
               onSubmitEditing={() => sendMessage(inputText)}
               multiline={false}
+              editable={!isTyping}
             />
             <TouchableOpacity
-              style={styles.sendBtn}
+              style={[styles.sendBtn, isTyping && styles.sendBtnDisabled]}
               onPress={() => sendMessage(inputText)}
               activeOpacity={0.85}
+              disabled={isTyping}
             >
               <MaterialIcons name="arrow-forward" size={20} color="#fff" />
             </TouchableOpacity>
@@ -226,7 +225,6 @@ export default function SabanaZenChatScreen() {
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#F8F9FB' },
 
-  // Header
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingVertical: 10,
@@ -248,7 +246,6 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
 
-  // Chat
   chatScroll: { flex: 1 },
   chatContent: { padding: 16, gap: 20, paddingBottom: 8 },
 
@@ -281,7 +278,6 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3, marginLeft: 4,
   },
 
-  // Input area
   inputArea: {
     backgroundColor: '#F8F9FB',
     borderTopWidth: 1, borderTopColor: '#C5CDD8',
@@ -303,19 +299,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 8,
     backgroundColor: '#fff',
     borderWidth: 1, borderColor: '#C5CDD8',
-    borderRadius: 12, paddingHorizontal: 8, paddingVertical: 6,
+    borderRadius: 12, paddingHorizontal: 12, paddingVertical: 6,
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.07, shadowRadius: 6, elevation: 3,
   },
-  inputIconBtn: { padding: 6 },
   textInput: {
     flex: 1, fontSize: 14, lineHeight: 20, color: '#191c1e',
-    paddingHorizontal: 4, paddingVertical: 6,
+    paddingVertical: 6,
   },
   sendBtn: {
     width: 40, height: 40, borderRadius: 10,
     backgroundColor: '#185FA5',
     alignItems: 'center', justifyContent: 'center',
   },
-
+  sendBtnDisabled: { backgroundColor: '#94a3b8' },
 });
