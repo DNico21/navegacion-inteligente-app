@@ -76,9 +76,9 @@ function getMemberSince(creationTime?: string): string {
 }
 
 export default function ProfileScreen() {
-  const { state, signOut } = useContext(AuthContext);
+  const { state, signOut, updateUser } = useContext(AuthContext);
   const user = state.user;
-  const [notifications, setNotifications] = useState(true);
+  const [notifications, setNotifications] = useState<boolean>(user?.notifications ?? true);
 
   const initials = getInitials(user?.firstname, user?.lastname);
   const fullName = user?.fullName ?? (`${user?.firstname ?? ''} ${user?.lastname ?? ''}`.trim() || 'Usuario');
@@ -109,7 +109,11 @@ export default function ProfileScreen() {
     if (row.type === 'toggle') {
       const on = row.toggleKey === 'notifications' ? notifications : false;
       const setOn = row.toggleKey === 'notifications'
-        ? () => setNotifications(v => !v)
+        ? async () => {
+            const next = !notifications;
+            setNotifications(next);
+            await updateUser({ notifications: next });
+          }
         : () => {};
 
       return (

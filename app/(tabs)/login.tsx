@@ -16,6 +16,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons, AntDesign, Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { sendPasswordResetEmail } from 'firebase/auth';
+import { auth } from '@/utils/firebaseConfig';
 import { AuthContext } from '@/context/AuthContext/AuthContext';
 
 export default function LoginScreen() {
@@ -88,7 +90,32 @@ export default function LoginScreen() {
             <View style={styles.field}>
               <View style={styles.labelRow}>
                 <Text style={styles.label}>Contraseña</Text>
-                <TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => {
+                    if (!email.trim()) {
+                      Alert.alert('Ingresa tu correo', 'Escribe tu correo arriba y luego presiona este enlace.');
+                      return;
+                    }
+                    Alert.alert(
+                      'Recuperar contraseña',
+                      `Se enviará un enlace de recuperación a:\n${email}`,
+                      [
+                        { text: 'Cancelar', style: 'cancel' },
+                        {
+                          text: 'Enviar',
+                          onPress: async () => {
+                            try {
+                              await sendPasswordResetEmail(auth, email.trim());
+                              Alert.alert('Correo enviado', 'Revisa tu bandeja de entrada para restablecer tu contraseña.');
+                            } catch {
+                              Alert.alert('Error', 'No encontramos una cuenta con ese correo.');
+                            }
+                          },
+                        },
+                      ],
+                    );
+                  }}
+                >
                   <Text style={styles.forgotLink}>¿Olvidaste tu contraseña?</Text>
                 </TouchableOpacity>
               </View>

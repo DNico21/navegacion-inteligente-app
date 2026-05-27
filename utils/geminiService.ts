@@ -1,5 +1,4 @@
-const GEMINI_API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY ?? '';
-const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+const GEMINI_URL_BASE = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
 
 const SYSTEM_PROMPT = `Eres Sabana Zen, un asistente de bienestar y calma integrado en una app de navegación para la región Sabana Centro de Colombia (Chía, Cajicá, Zipaquirá, Cogua, Nemocón, Bogotá y municipios cercanos).
 
@@ -29,7 +28,8 @@ export async function sendMessageToGemini(
   history: GeminiMessage[],
   userMessage: string,
 ): Promise<string> {
-  if (!GEMINI_API_KEY) {
+  const apiKey = process.env.EXPO_PUBLIC_GEMINI_API_KEY ?? '';
+  if (!apiKey) {
     return 'Configura tu clave de Gemini en el archivo .env para activar el chat con IA.';
   }
 
@@ -41,7 +41,7 @@ export async function sendMessageToGemini(
     { role: 'user', parts: [{ text: userMessage }] },
   ];
 
-  const response = await fetch(GEMINI_URL, {
+  const response = await fetch(`${GEMINI_URL_BASE}?key=${apiKey}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -53,6 +53,7 @@ export async function sendMessageToGemini(
 
   if (!response.ok) {
     const err = await response.text();
+    console.error('[Gemini] Error response:', response.status, err);
     throw new Error(`Gemini ${response.status}: ${err}`);
   }
 

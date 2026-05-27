@@ -247,6 +247,22 @@ export default function TodayRoutesScreen() {
           <MaterialIcons name="chevron-right" size={22} color="#185FA5" />
         </TouchableOpacity>
 
+        {/* Weekly history shortcut */}
+        <TouchableOpacity
+          style={styles.historyCard}
+          activeOpacity={0.85}
+          onPress={() => router.push('/weekly-history' as any)}
+        >
+          <View style={styles.wellnessCardLeft}>
+            <MaterialIcons name="insert-chart" size={22} color="#2D751A" />
+            <View>
+              <Text style={styles.historyCardTitle}>Historial Semanal</Text>
+              <Text style={styles.historyCardSub}>Eficiencia de tus rutas e impacto CO₂</Text>
+            </View>
+          </View>
+          <MaterialIcons name="chevron-right" size={22} color="#2D751A" />
+        </TouchableOpacity>
+
         {/* Mapa miniatura */}
         <View style={styles.mapPlaceholder}>
           <MapView
@@ -665,4 +681,14 @@ const styles = StyleSheet.create({
     color: '#B03A39',
     fontWeight: '500',
   },
+
+  // History shortcut
+  historyCard: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    backgroundColor: '#F0FAF0',
+    borderWidth: 1, borderColor: '#A8D5A2',
+    borderRadius: 12, padding: 14,
+  },
+  historyCardTitle: { fontSize: 15, fontWeight: '700', color: '#1A4D1A' },
+  historyCardSub: { fontSize: 12, color: '#4A7A4A', marginTop: 1 },
 });
